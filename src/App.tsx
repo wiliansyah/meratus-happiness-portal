@@ -22,6 +22,14 @@ if (typeof window !== 'undefined' && !document.getElementById('tailwind-cdn')) {
   document.head.appendChild(script);
 }
 
+// jsPDF Injection untuk konversi Image ke PDF Otomatis
+if (typeof window !== 'undefined' && !document.getElementById('jspdf-cdn')) {
+  const script = document.createElement('script');
+  script.id = 'jspdf-cdn';
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  document.head.appendChild(script);
+}
+
 // --- FIREBASE CONFIGURATION ---
 const fallbackConfig = {
   apiKey: 'AIzaSyAgZUtc5aZguYz_MW5zISkuLvDgPmDixfg',
@@ -117,9 +125,30 @@ const getStatusDisplay = (status: any) => {
   return map[status] || { label: status, color: 'bg-gray-100 text-gray-800', step: 0 };
 };
 
+// Fungsi Utilitas Konversi String Base64 murni ke format Blob yang stabil untuk di download
+const base64ToBlob = (base64Data, contentType) => {
+  contentType = contentType || '';
+  const sliceSize = 1024;
+  const byteCharacters = atob(base64Data);
+  const bytesLength = byteCharacters.length;
+  const slicesCount = Math.ceil(bytesLength / sliceSize);
+  const byteArrays = new Array(slicesCount);
+
+  for (let sliceIndex = 0; sliceIndex < slicesCount; ++sliceIndex) {
+    const begin = sliceIndex * sliceSize;
+    const end = Math.min(begin + sliceSize, bytesLength);
+
+    const bytes = new Array(end - begin);
+    for (let offset = begin, i = 0; offset < end; ++i, ++offset) {
+      bytes[i] = byteCharacters[offset].charCodeAt(0);
+    }
+    byteArrays[sliceIndex] = new Uint8Array(bytes);
+  }
+  return new Blob(byteArrays, { type: contentType });
+};
+
 // --- REUSABLE COMPONENTS ---
 
-// FIX: Komponen FilePreviewModal yang sudah disempurnakan logikanya
 const FilePreviewModal = ({ fileObj, onClose }: any) => {
   if (!fileObj) return null;
   
@@ -127,36 +156,39 @@ const FilePreviewModal = ({ fileObj, onClose }: any) => {
   const fileName = isLegacyString ? fileObj : (fileObj.name || 'document');
   const ext = fileName.split('.').pop().toLowerCase();
   
-  // Memastikan tipe file dikenali dengan akurat
   const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext) || (!isLegacyString && fileObj.type?.startsWith('image/'));
   const isPdf = ['pdf'].includes(ext) || (!isLegacyString && fileObj.type === 'application/pdf');
   const fileData = isLegacyString ? null : fileObj.data;
 
-  // Fitur Download yang dikonversi dari Base64 via Native fetch untuk kompabilitas yang kuat
   const handleDownload = async () => {
     if (!isLegacyString && fileData) {
       try {
-        const response = await fetch(fileData);
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
+        const parts = fileData.split(';base64,');
+        if (parts.length === 2) {
+          const contentType = parts[0].split(':')[1];
+          const base64Data = parts[1];
+          const blob = base64ToBlob(base64Data, contentType);
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        } else {
+          // Jika format data url kurang standar
+          const link = document.createElement('a');
+          link.href = fileData;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
       } catch (e) {
-        // Fallback klasik jika fetch gagal
-        const link = document.createElement('a');
-        link.href = fileData;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        console.error("Gagal memproses unduhan secara native", e);
       }
     } else {
-      // Fallback bagi file yang berupa mock (string lama)
       const content = `--- MERATUS HAPPINESS DOCUMENT ---\nNama Dokumen: ${fileName}\n\n(Dokumen simulasi di-generate sistem karena data adalah mock/legacy.)`;
       const blob = new Blob([content], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
@@ -274,7 +306,7 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
                   {event.budget_items?.map((it: any, i: number) => (
                     <tr key={i} className="border-b border-slate-100 last:border-0"><td className="p-4">{it.desc}</td><td className="p-4">{it.qty} {it.unit}</td><td className="p-4">{formatCurrency(it.price)}</td><td className="p-4 font-semibold text-right">{formatCurrency(it.price * it.qty)}</td></tr>
                   ))}
-                  <tr className="bg-blue-50/50"><td colSpan="3" className="p-4 text-right font-bold text-slate-700">Total Pengajuan:</td><td className="p-4 font-black text-blue-900 text-right text-lg">{formatCurrency(proposedTotal)}</td></tr>
+                  <tr className="bg-blue-50"><td colSpan="3" className="p-4 text-right font-bold text-slate-700">Total Pengajuan:</td><td className="p-4 font-black text-blue-900 text-right text-lg">{formatCurrency(proposedTotal)}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -309,7 +341,7 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 h-full">
+                  <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 h-full">
                     <p className="text-xs font-bold text-blue-900 uppercase mb-4 tracking-wider">Lampiran Dokumen</p>
                     <ul className="space-y-3 text-sm text-blue-700 font-medium">
                       {['nota', 'absensi', 'foto'].map(fileKey => {
@@ -337,7 +369,7 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
           )}
 
           {event.admin_notes && (
-            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-5 rounded-2xl border border-yellow-200 flex items-start shadow-sm">
+            <div className="bg-orange-50 p-5 rounded-2xl border border-yellow-200 flex items-start shadow-sm">
               <MessageSquare className="w-6 h-6 text-yellow-600 mr-3 mt-0.5" />
               <div>
                 <p className="text-xs font-extrabold text-yellow-800 uppercase mb-1 tracking-wider">Catatan Admin</p>
@@ -378,10 +410,9 @@ const LoginScreen = ({ ctx }: any) => {
       </div>
 
       <div className="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 relative z-10">
-        {/* FIX: Perubahan gradient dinamis ke warna solid untuk kestabilan CDN */}
         <div className="absolute top-0 left-0 w-full h-2 bg-blue-600"></div>
         <div className="flex justify-center mb-8">
-          <div className="bg-gradient-to-br from-red-50 to-red-100 p-5 rounded-full shadow-inner border border-red-100">
+          <div className="bg-red-50 p-5 rounded-full shadow-inner border border-red-100">
             <HeartPulse className="text-red-600 w-12 h-12" />
           </div>
         </div>
@@ -403,7 +434,6 @@ const LoginScreen = ({ ctx }: any) => {
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-12 pr-4 py-3.5 border-2 border-slate-200 rounded-xl focus:ring-0 focus:border-blue-600 outline-none transition-colors font-semibold" placeholder="••••••••" />
             </div>
           </div>
-          {/* FIX: Pengubahan tombol dengan warna background yang solid */}
           <button type="submit" className="w-full bg-blue-800 hover:bg-blue-900 text-white font-black py-4 rounded-xl mt-8 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all flex justify-center items-center">
             Masuk Sistem <ArrowRight className="ml-2 w-5 h-5"/>
           </button>
@@ -517,11 +547,10 @@ const ViewDashboard = ({ ctx }: any) => {
       
       {/* SMART REMINDER BANNER FOR PIC */}
       {isPIC && myProgram && (
-        // FIX: Warna latar dirubah ke kelas warna biru yang standar (bg-blue-700) untuk mengatasi isu gradien transparan di browser CDN
         <div className="bg-blue-700 rounded-3xl p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
           <div className="absolute right-0 top-0 opacity-10 transform translate-x-8 -translate-y-8 pointer-events-none"><BellRing className="w-48 h-48" /></div>
           <div className="relative z-10">
-            <h3 className="font-black text-2xl mb-2 flex items-center"><BellRing className="mr-3 w-6 h-6 animate-bounce text-yellow-300"/> Pengingat Jadwal Anda</h3>
+            <h3 className="font-black text-2xl mb-2 flex items-center text-white"><BellRing className="mr-3 w-6 h-6 animate-bounce text-yellow-300"/> Pengingat Jadwal Anda</h3>
             <p className="text-blue-100 font-medium">Jadwal kegiatan <b>{myProgram.sport}</b> adalah setiap hari <b>{myProgram.day}</b> ({myProgram.freqText}).</p>
             <p className="text-sm mt-2 text-yellow-300 font-bold">Periode ini tercatat {currentPeriodEvents.length} pengajuan masuk.</p>
           </div>
@@ -540,7 +569,7 @@ const ViewDashboard = ({ ctx }: any) => {
             {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Random'].map(day => {
               const progsToday = ctx.programs.filter((p: any) => p.day === day);
               return (
-                <div key={day} className={`p-4 rounded-2xl border-2 ${progsToday.length > 0 ? 'bg-indigo-50/50 border-indigo-100 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-70'}`}>
+                <div key={day} className={`p-4 rounded-2xl border-2 ${progsToday.length > 0 ? 'bg-indigo-50 border-indigo-100 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-70'}`}>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{day}</p>
                   {progsToday.length > 0 ? (
                     <div className="space-y-2">
@@ -747,7 +776,6 @@ const ViewDashboard = ({ ctx }: any) => {
                         <div className="mt-2 pt-4 border-t border-slate-100">
                           <div className="flex justify-between items-center relative">
                             <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-100 -z-0 -translate-y-1/2 rounded-full"></div>
-                            {/* FIX: Stepper bar menggunakan solid color bg-blue-500 untuk kepastian render di CDN */}
                             <div className="absolute top-1/2 left-0 h-1 bg-blue-500 -z-0 -translate-y-1/2 rounded-full transition-all duration-1000" style={{ width: `${((statusInfo.step-1) / 3) * 100}%` }}></div>
                             
                             {[1, 2, 3, 4].map(step => (
@@ -832,16 +860,16 @@ const ViewNewProposal = ({ ctx }: any) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Tanggal & Waktu</label>
-              <input type="datetime-local" required className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50/50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+              <input type="datetime-local" required className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Venue Pelaksanaan</label>
-              <input type="text" required placeholder="Cth: DDB Arena" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50/50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" onChange={(e) => setFormData({ ...formData, venue: e.target.value })} />
+              <input type="text" required placeholder="Cth: DDB Arena" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" onChange={(e) => setFormData({ ...formData, venue: e.target.value })} />
             </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Objektif Kegiatan (Justifikasi)</label>
-            <textarea required rows="2" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50/50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" placeholder="Contoh: Latihan rutin dan persiapan acara akhir tahun..." onChange={(e) => setFormData({ ...formData, objective: e.target.value })}></textarea>
+            <textarea required rows="2" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" placeholder="Contoh: Latihan rutin dan persiapan acara akhir tahun..." onChange={(e) => setFormData({ ...formData, objective: e.target.value })}></textarea>
           </div>
           <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
             <div className="flex justify-between items-center mb-4">
@@ -862,7 +890,7 @@ const ViewNewProposal = ({ ctx }: any) => {
               ))}
             </div>
           </div>
-          <div className="bg-blue-50/30 rounded-2xl p-6 border border-blue-100">
+          <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
             <div className="flex justify-between items-center mb-5">
               <h3 className="font-black text-blue-900">Rincian Anggaran</h3>
               <button type="button" onClick={() => setBudgetItems([...budgetItems, { desc: '', qty: 1, unit: 'Sesi', price: '' }])} className="text-xs bg-white shadow-sm border border-slate-200 px-4 py-2 rounded-lg font-bold text-blue-700 hover:bg-slate-50 flex items-center"><Plus className="w-4 h-4 mr-1"/> Tambah Item</button>
@@ -870,19 +898,18 @@ const ViewNewProposal = ({ ctx }: any) => {
             <div className="space-y-3">
               {budgetItems.map((item, idx) => (
                 <div key={idx} className="flex gap-3 items-center">
-                  <input type="text" placeholder="Deskripsi Item" required className="flex-grow p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500" value={item.desc} onChange={e => { const b = [...budgetItems]; b[idx] = {...b[idx], desc: e.target.value}; setBudgetItems(b); }} />
-                  <input type="number" required min="1" className="w-24 p-3 border border-slate-200 rounded-xl text-sm text-center outline-none focus:border-blue-500" value={item.qty} onChange={e => { const b = [...budgetItems]; b[idx] = {...b[idx], qty: e.target.value}; setBudgetItems(b); }} />
-                  <input type="number" placeholder="Harga Satuan" required className="w-40 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500" value={item.price} onChange={e => { const b = [...budgetItems]; b[idx] = {...b[idx], price: e.target.value}; setBudgetItems(b); }} />
+                  <input type="text" placeholder="Deskripsi Item" required className="flex-grow p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white" value={item.desc} onChange={e => { const b = [...budgetItems]; b[idx] = {...b[idx], desc: e.target.value}; setBudgetItems(b); }} />
+                  <input type="number" required min="1" className="w-24 p-3 border border-slate-200 rounded-xl text-sm text-center outline-none focus:border-blue-500 bg-white" value={item.qty} onChange={e => { const b = [...budgetItems]; b[idx] = {...b[idx], qty: e.target.value}; setBudgetItems(b); }} />
+                  <input type="number" placeholder="Harga Satuan" required className="w-40 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white" value={item.price} onChange={e => { const b = [...budgetItems]; b[idx] = {...b[idx], price: e.target.value}; setBudgetItems(b); }} />
                   <button type="button" onClick={() => setBudgetItems(budgetItems.filter((_, i) => i !== idx))} className="p-3 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={20}/></button>
                 </div>
               ))}
             </div>
-            <div className="mt-6 text-right pt-6 border-t border-blue-200/50">
+            <div className="mt-6 text-right pt-6 border-t border-blue-200">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Total Nilai Pengajuan</p>
               <p className="text-3xl font-black text-blue-900">{formatCurrency(totalProp)}</p>
             </div>
           </div>
-          {/* FIX: Mengganti bg-gradient dengan bg-blue-800 warna solid yang stabil */}
           <button type="submit" className="w-full bg-blue-800 hover:bg-blue-900 transition-all text-white font-black text-lg py-5 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5">Kirim Pengajuan Proposal</button>
         </form>
       </div>
@@ -902,18 +929,87 @@ const ViewReporting = ({ ctx }: any) => {
     setReportData({ ...reportData, actual_cost: calculateTotalBudget(evt.budget_items), attended: evt.participants?.length || 0 }); 
   };
 
+  // Konversi otomatis file gambar menjadi PDF dan kompresi jika besar
   const handleFile = (e: any, type: string) => { 
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const fileData = reader.result as string;
+
+      // Jika file adalah gambar, konversi langsung menjadi file PDF
+      if (file.type.startsWith('image/')) {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            // Kompresi ukuran jika lebih dari 1000px untuk optimasi database Cloud (1MB Max)
+            let width = img.width;
+            let height = img.height;
+            const MAX_SIZE = 1000;
+            
+            if (width > height && width > MAX_SIZE) {
+              height = Math.round(height * (MAX_SIZE / width));
+              width = MAX_SIZE;
+            } else if (height > MAX_SIZE) {
+              width = Math.round(width * (MAX_SIZE / height));
+              height = MAX_SIZE;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const canvasCtx = canvas.getContext('2d');
+            
+            if(canvasCtx) {
+              canvasCtx.fillStyle = '#FFFFFF';
+              canvasCtx.fillRect(0, 0, width, height);
+              canvasCtx.drawImage(img, 0, 0, width, height);
+            }
+
+            const compressedImg = canvas.toDataURL('image/jpeg', 0.7);
+
+            // Jika JS PDF library tersedia dari CDN, langsung convert menjadi PDF
+            if (window.jspdf && window.jspdf.jsPDF) {
+              const { jsPDF } = window.jspdf;
+              const orientation = width > height ? 'l' : 'p';
+              const doc = new jsPDF({ orientation, unit: 'px', format: [width, height] });
+              doc.addImage(compressedImg, 'JPEG', 0, 0, width, height);
+              const pdfDataUri = doc.output('datauristring');
+              
+              const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".pdf";
+              setReportData(prev => ({
+                ...prev, 
+                files: { ...prev.files, [type]: { name: newFileName, type: 'application/pdf', data: pdfDataUri } }
+              }));
+              
+              ctx.showToast(`Sukses memproses & mengkonversi ${file.name} menjadi dokumen PDF!`, 'success');
+            } else {
+               // Fallback: Jika internet jelek & CDN belum termuat, simpan file sebagai gambar yang dikompres saja
+               setReportData(prev => ({
+                ...prev, 
+                files: { ...prev.files, [type]: { name: file.name, type: file.type, data: compressedImg } }
+              }));
+            }
+          } catch(err) {
+            console.error("Gagal melakukan optimasi/konversi PDF:", err);
+            // Fallback fatal (simpan murni file mentah)
+            setReportData(prev => ({
+              ...prev, 
+              files: { ...prev.files, [type]: { name: file.name, type: file.type, data: fileData } }
+            }));
+          }
+        };
+        img.src = fileData;
+      } else {
+        // Jika file bukan gambar (contoh: Upload langsung format PDF)
         setReportData(prev => ({
           ...prev, 
-          files: { ...prev.files, [type]: { name: file.name, type: file.type, data: reader.result } } 
+          files: { ...prev.files, [type]: { name: file.name, type: file.type, data: fileData } } 
         }));
-      };
-      reader.readAsDataURL(file);
-    } 
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmitReport = async (id: string) => {
@@ -944,7 +1040,6 @@ const ViewReporting = ({ ctx }: any) => {
         eventsToReport.map((evt: any) => (
           reportingId === evt.id ? (
             <div key={evt.id} className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 relative overflow-hidden">
-              {/* FIX: Perubahan gradien pada border atas dengan warna solid orange */}
               <div className="absolute top-0 left-0 w-full h-2 bg-orange-500"></div>
               <h3 className="text-2xl font-black mb-8 text-slate-800 flex items-center"><FileText className="mr-3 text-red-500"/> Form Pelaporan: {evt.sport_type}</h3>
               <div className="space-y-8">
@@ -991,24 +1086,23 @@ const ViewReporting = ({ ctx }: any) => {
                 </div>
 
                 {/* Upload Bukti */}
-                {/* FIX: Menghapus gradien untuk menghindari box jadi putih */}
                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                   <p className="font-black text-blue-900 mb-5 flex items-center"><Paperclip className="w-5 h-5 mr-2"/> Unggah Dokumen Bukti</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-white p-4 rounded-xl shadow-sm">
                       <label className="block text-xs font-bold text-slate-600 mb-2">1. Nota / Invoice (Wajib)</label>
                       <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'nota')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                      {reportData.files.nota && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">File: {reportData.files.nota.name}</p>}
+                      {reportData.files.nota && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {reportData.files.nota.name}</p>}
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm">
                       <label className="block text-xs font-bold text-slate-600 mb-2">2. Foto Kegiatan (Wajib)</label>
                       <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'foto')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                      {reportData.files.foto && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">File: {reportData.files.foto.name}</p>}
+                      {reportData.files.foto && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {reportData.files.foto.name}</p>}
                     </div>
                     <div className="bg-white p-4 rounded-xl shadow-sm">
                       <label className="block text-xs font-bold text-slate-600 mb-2">3. Daftar Hadir (Opsional)</label>
                       <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'absensi')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                      {reportData.files.absensi && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">File: {reportData.files.absensi.name}</p>}
+                      {reportData.files.absensi && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {reportData.files.absensi.name}</p>}
                     </div>
                   </div>
                 </div>
@@ -1032,7 +1126,6 @@ const ViewReporting = ({ ctx }: any) => {
                   <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{new Date(evt.event_date).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
                 </div>
               </div>
-              {/* FIX: Mengganti bg-gradient untuk stabilitas pembacaan teks pada tombol Mulai Laporan */}
               <button onClick={() => openForm(evt)} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3.5 rounded-xl text-sm font-black shadow-md flex items-center justify-center transition-all hover:shadow-lg hover:-translate-y-0.5">
                 <Upload className="w-5 h-5 mr-2" /> Mulai Buat Laporan
               </button>
@@ -1044,7 +1137,6 @@ const ViewReporting = ({ ctx }: any) => {
   );
 };
 
-// Sub-Component untuk Admin Settlement Card yang memiliki local state edit 
 const AdminSettlementCard = ({ evt, ctx }: any) => {
   const proposed = calculateTotalBudget(evt.budget_items);
   const [editCost, setEditCost] = useState(evt.report?.actual_cost || 0);
@@ -1094,7 +1186,7 @@ const AdminSettlementCard = ({ evt, ctx }: any) => {
         </div>
       </div>
 
-      <div className="mb-5 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+      <div className="mb-5 bg-blue-50 p-4 rounded-xl border border-blue-100">
         <p className="text-xs font-black mb-3 text-blue-900 tracking-wide uppercase">File Lampiran PIC:</p>
         <ul className="space-y-2">
           {['nota', 'absensi', 'foto'].map(fileKey => {
@@ -1467,7 +1559,7 @@ const ViewMasterData = ({ ctx }: any) => {
                 </div>
 
                 {/* Data Program & Budget */}
-                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 space-y-3">
+                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 space-y-3">
                   <p className="text-[10px] font-black uppercase text-blue-500 tracking-wider">2. Setup Jadwal & Anggaran Awal</p>
                   <div className="flex gap-2">
                     <div className="w-1/3">
@@ -1507,7 +1599,7 @@ const ViewMasterData = ({ ctx }: any) => {
 
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+              <div className="p-6 border-b border-slate-100 bg-slate-50">
                 <h3 className="text-lg font-black text-slate-800 flex items-center"><Users className="w-5 h-5 mr-2 text-blue-600"/> Daftar Akun PIC Terdaftar</h3>
               </div>
               <div className="overflow-x-auto">
@@ -1522,7 +1614,7 @@ const ViewMasterData = ({ ctx }: any) => {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {ctx.accounts.filter((a: any) => a.role === ROLES.PIC).map((pic: any) => (
-                      <tr key={pic.id} className="hover:bg-blue-50/40 transition-colors">
+                      <tr key={pic.id} className="hover:bg-blue-50 transition-colors">
                         <td className="p-4">
                           <p className="font-black text-slate-800 text-sm">{pic.name}</p>
                           <p className="text-xs text-slate-500 font-bold mt-0.5">{pic.division || '-'}</p>
@@ -1544,7 +1636,7 @@ const ViewMasterData = ({ ctx }: any) => {
 
       {tab === 'program' && (
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+          <div className="p-6 border-b border-slate-100 bg-slate-50">
             <h3 className="text-lg font-black text-slate-800 flex items-center"><CalendarDays className="w-5 h-5 mr-2 text-indigo-600"/> Jadwal Master & Plafon Anggaran Bulanan</h3>
             <p className="text-xs font-bold text-slate-500 mt-1">Perubahan pada data ini akan langsung mempengaruhi limit pengajuan PIC dan master kalender di Dashboard.</p>
           </div>
@@ -1565,7 +1657,7 @@ const ViewMasterData = ({ ctx }: any) => {
                 {ctx.programs.map((prog: any) => {
                   const isEditing = editingProgId === prog.id;
                   return (
-                    <tr key={prog.id} className={`${isEditing ? 'bg-indigo-50/30' : 'hover:bg-slate-50'} transition-colors`}>
+                    <tr key={prog.id} className={`${isEditing ? 'bg-indigo-50' : 'hover:bg-slate-50'} transition-colors`}>
                       <td className="p-4 font-black text-blue-900">{prog.sport}</td>
                       <td className="p-4">
                         {isEditing ? (
@@ -1606,7 +1698,6 @@ const ViewMasterData = ({ ctx }: any) => {
                     </tr>
                   )
                 })}
-                {/* FIX: Mengganti bg-gradient yang putih menjadi warna solid biru terang */}
                 <tr className="bg-blue-50">
                   <td colSpan="5" className="p-4 font-black text-right text-blue-900 uppercase tracking-wider text-xs">Grand Total Plafon / Bulan</td>
                   <td className="p-4 font-black text-xl text-blue-900 text-right">

@@ -129,14 +129,25 @@ const FilePreviewModal = ({ fileObj, onClose }: any) => {
   const isPdf = isLegacyString ? ext === 'pdf' : fileObj.type === 'application/pdf';
   const fileData = isLegacyString ? null : fileObj.data;
 
+  // FIX: Menggunakan implementasi unduhan yang lebih kuat untuk URI data URI Base64
   const handleDownload = () => {
     if (!isLegacyString && fileData) {
-      const link = document.createElement('a');
-      link.href = fileData;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const parts = fileData.split(';base64,');
+      if (parts.length === 2) {
+        const contentType = parts[0].split(':')[1];
+        const base64Data = parts[1];
+        const blob = base64ToBlob(base64Data, contentType);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        console.error("Format data URI tidak valid untuk pengunduhan.");
+      }
     } else {
       const content = `--- MERATUS HAPPINESS DOCUMENT ---\nNama Dokumen: ${fileName}\n\n(Dokumen simulasi di-generate sistem karena data adalah mock/legacy.)`;
       const blob = new Blob([content], { type: 'text/plain' });
@@ -151,6 +162,28 @@ const FilePreviewModal = ({ fileObj, onClose }: any) => {
     }
   };
 
+  // Fungsi utilitas untuk mengonversi Base64 menjadi Blob
+  const base64ToBlob = (base64Data, contentType) => {
+    contentType = contentType || '';
+    const sliceSize = 1024;
+    const byteCharacters = atob(base64Data);
+    const bytesLength = byteCharacters.length;
+    const slicesCount = Math.ceil(bytesLength / sliceSize);
+    const byteArrays = new Array(slicesCount);
+
+    for (let sliceIndex = 0; sliceIndex < slicesCount; ++sliceIndex) {
+      const begin = sliceIndex * sliceSize;
+      const end = Math.min(begin + sliceSize, bytesLength);
+
+      const bytes = new Array(end - begin);
+      for (let offset = begin, i = 0; offset < end; ++i, ++offset) {
+        bytes[i] = byteCharacters[offset].charCodeAt(0);
+      }
+      byteArrays[sliceIndex] = new Uint8Array(bytes);
+    }
+    return new Blob(byteArrays, { type: contentType });
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex justify-center items-center p-4 md:p-10 animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-full max-h-[85vh] flex flex-col overflow-hidden transform transition-all scale-in-95">
@@ -162,6 +195,7 @@ const FilePreviewModal = ({ fileObj, onClose }: any) => {
           {isImage ? (
             <img src={fileData || `https://placehold.co/800x600/e2e8f0/475569?text=Preview+Foto+${encodeURIComponent(fileName)}`} alt="preview" className="max-w-full max-h-full rounded-xl shadow-md object-contain" />
           ) : isPdf && fileData ? (
+            // FIX: Menggunakan iframe untuk pratinjau PDF yang lebih baik jika data URI tersedia
             <iframe src={fileData} className="w-full h-full rounded-xl shadow-md border-0 bg-white" title="PDF Preview"></iframe>
           ) : (
             <div className="bg-white p-12 rounded-3xl shadow-lg flex flex-col items-center max-w-md w-full text-center border border-slate-100">
@@ -485,12 +519,16 @@ const ViewDashboard = ({ ctx }: any) => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500">
       
+      {/* SMART REMINDER BANNER FOR PIC */}
       {isPIC && myProgram && (
+        // FIX: Spanduk pengingat jadwal PIC, memperbarui kontras teks judul dan deskripsi agar terbaca dengan baik.
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
           <div className="absolute right-0 top-0 opacity-10 transform translate-x-8 -translate-y-8 pointer-events-none"><BellRing className="w-48 h-48" /></div>
           <div className="relative z-10">
-            <h3 className="font-black text-2xl mb-2 flex items-center"><BellRing className="mr-3 w-6 h-6 animate-bounce text-yellow-300"/> Pengingat Jadwal Anda</h3>
-            <p className="text-blue-100 font-medium">Jadwal kegiatan <b>{myProgram.sport}</b> adalah setiap hari <b>{myProgram.day}</b> ({myProgram.freqText}).</p>
+            {/* FIX: Warna teks judul diubah dari putih menjadi biru tua untuk kontras yang lebih baik */}
+            <h3 className="font-black text-2xl mb-2 flex items-center text-blue-900 shadow-none"><BellRing className="mr-3 w-6 h-6 animate-bounce text-yellow-300"/> Pengingat Jadwal Anda</h3>
+            {/* FIX: Warna teks deskripsi diubah dari biru muda menjadi biru tua yang sedikit lebih terang agar lebih jelas terbaca */}
+            <p className="text-blue-900 font-medium">Jadwal kegiatan <b>{myProgram.sport}</b> adalah setiap hari <b>{myProgram.day}</b> ({myProgram.freqText}).</p>
             <p className="text-sm mt-2 text-yellow-300 font-bold">Periode ini tercatat {currentPeriodEvents.length} pengajuan masuk.</p>
           </div>
           <button onClick={() => ctx.setView('new_proposal')} className="bg-white text-indigo-700 hover:bg-blue-50 font-black px-6 py-3 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 flex-shrink-0 flex items-center">
@@ -499,10 +537,12 @@ const ViewDashboard = ({ ctx }: any) => {
         </div>
       )}
 
+      {/* MASTER CALENDAR BANNER FOR ADMIN */}
       {!isPIC && (
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
           <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none transform translate-x-4 translate-y-4"><CalendarDays className="w-48 h-48" /></div>
-          <h3 className="text-lg font-black text-slate-800 mb-5 flex items-center relative z-10"><CalendarDays className="w-5 h-5 mr-2 text-indigo-600" /> Kalender & Jadwal Program Rutin</h3>
+          {/* FIX: Memperbarui teks judul agar seragam dan memiliki kontras warna yang baik */}
+          <h3 className="text-lg font-black text-slate-800 mb-5 flex items-center relative z-10 text-slate-800 shadow-none"><CalendarDays className="w-5 h-5 mr-2 text-indigo-600" /> Kalender & Jadwal Program Rutin</h3>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3 relative z-10">
             {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Random'].map(day => {
               const progsToday = ctx.programs.filter((p: any) => p.day === day);
@@ -521,6 +561,7 @@ const ViewDashboard = ({ ctx }: any) => {
         </div>
       )}
 
+      {/* FILTER ANALISIS TERPADU */}
       <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 relative z-20 mt-8">
         <div className="flex items-center text-blue-900 font-black whitespace-nowrap bg-blue-50 px-4 py-2.5 rounded-xl border border-blue-100">
           <ListFilter className="w-5 h-5 mr-2"/> Filter Dasbor:
@@ -553,6 +594,7 @@ const ViewDashboard = ({ ctx }: any) => {
         </div>
       </div>
       
+      {/* TOP CARDS */}
       <div className={`grid grid-cols-1 md:grid-cols-2 ${!isPIC ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
           <div className="absolute -right-6 -top-6 bg-blue-50 w-24 h-24 rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
@@ -570,6 +612,7 @@ const ViewDashboard = ({ ctx }: any) => {
           <p className="text-2xl font-black text-emerald-600 mt-2 relative z-10">{formatCurrency(totalBudgetSpent)}</p>
         </div>
         
+        {/* Rating Card Only For Admin */}
         {!isPIC && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
             <div className="absolute -right-6 -top-6 bg-yellow-50 w-24 h-24 rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
@@ -589,10 +632,12 @@ const ViewDashboard = ({ ctx }: any) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
+        {/* Growth Analytics (FULL WIDTH untuk Admin & PIC) */}
         <div className="lg:col-span-3 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col space-y-6">
           <h3 className="text-lg font-black text-slate-800 flex items-center"><TrendingUp className="w-5 h-5 mr-2 text-indigo-600" /> Analitik Tren Pertumbuhan Data Tervalidasi ({filterYear})</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
+            {/* Grafik 1: Pertumbuhan Event */}
             <div className="flex flex-col bg-slate-50 p-4 rounded-2xl border border-slate-100">
               <p className="text-xs font-black text-slate-500 mb-6 text-center uppercase tracking-wide">Tren Kegiatan Selesai</p>
               <div className="flex-grow w-full overflow-x-auto custom-scrollbar pb-2">
@@ -609,6 +654,7 @@ const ViewDashboard = ({ ctx }: any) => {
               </div>
             </div>
 
+            {/* Grafik 2: Pertumbuhan Peserta */}
             <div className="flex flex-col bg-slate-50 p-4 rounded-2xl border border-slate-100">
               <p className="text-xs font-black text-slate-500 mb-6 text-center uppercase tracking-wide">Tren Kehadiran Peserta</p>
               <div className="flex-grow w-full overflow-x-auto custom-scrollbar pb-2">
@@ -625,6 +671,7 @@ const ViewDashboard = ({ ctx }: any) => {
               </div>
             </div>
 
+            {/* Grafik 3: Tren Realisasi Anggaran */}
             <div className="flex flex-col bg-slate-50 p-4 rounded-2xl border border-slate-100">
               <p className="text-xs font-black text-slate-500 mb-6 text-center uppercase tracking-wide">Tren Realisasi Anggaran</p>
               <div className="flex-grow w-full overflow-x-auto custom-scrollbar pb-2">
@@ -643,10 +690,12 @@ const ViewDashboard = ({ ctx }: any) => {
           </div>
         </div>
 
+        {/* Progress Bar Serapan Anggaran */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm lg:col-span-2">
           <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center"><BarChart3 className="w-5 h-5 mr-2 text-blue-600" /> Analisis Serapan Anggaran Program</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {programsToMonitor.map((prog: any) => {
+              // HANYA hitung dari status Completed
               const progEvents = currentPeriodEvents.filter((e: any) => e.sport_type.includes(prog.sport) && e.status === 'completed');
               const spent = progEvents.reduce((sum: any, e: any) => sum + (e.report?.actual_cost || 0), 0);
               const plafon = calculateProgramTotal(prog) * multiplier;
@@ -673,6 +722,7 @@ const ViewDashboard = ({ ctx }: any) => {
           </div>
         </div>
 
+        {/* Live Feed Event Terfilter */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full lg:col-span-1 max-h-[600px]">
           <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center"><Activity className="w-5 h-5 mr-2 text-red-600" /> 
             {isPIC ? 'Status Pengajuan Periode Ini' : 'Daftar Kegiatan Berjalan'}
@@ -699,6 +749,7 @@ const ViewDashboard = ({ ctx }: any) => {
                         <p className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 whitespace-nowrap">{formatCurrency(evt.report?.actual_cost || calculateTotalBudget(evt.budget_items))}</p>
                       </div>
                       
+                      {/* Visual Stepper Khusus PIC */}
                       {isPIC && (
                         <div className="mt-2 pt-4 border-t border-slate-100">
                           <div className="flex justify-between items-center relative">
@@ -713,6 +764,7 @@ const ViewDashboard = ({ ctx }: any) => {
                         </div>
                       )}
 
+                      {/* Tampilan Standar Untuk Admin */}
                       {!isPIC && (
                         <div className="text-right mt-2 border-t border-slate-100 pt-3 flex justify-between items-center">
                           <span className="text-[10px] font-bold text-slate-400"><Users className="w-3 h-3 inline mr-1"/>{evt.report?.attended || evt.participants?.length || 0} Pax</span>
@@ -731,12 +783,13 @@ const ViewDashboard = ({ ctx }: any) => {
   );
 };
 
-// 2. Form Pengajuan
+// 2. Form Pengajuan (Dengan Validasi Minimal 7 Peserta)
 const ViewNewProposal = ({ ctx }: any) => {
   const defaultSport = ctx.user.sport || '';
   const defaultProgram = ctx.programs.find((p: any) => p.sport === defaultSport) || {};
   const [formData, setFormData] = useState<any>({ sport: defaultSport, date: '', venue: '', objective: '' });
   
+  // Inisialisasi awal dengan 7 baris kosong
   const initialParticipants = Array(7).fill(null).map(() => ({ id: generateId(), name: '', dept: '' }));
   const [participants, setParticipants] = useState<any[]>(initialParticipants);
   
@@ -854,7 +907,7 @@ const ViewReporting = ({ ctx }: any) => {
     setReportData({ ...reportData, actual_cost: calculateTotalBudget(evt.budget_items), attended: evt.participants?.length || 0 }); 
   };
 
-  // Convert File to Base64 
+  // FIX: Mengonversi file menjadi string data URI Base64 untuk penyimpanan Firestore
   const handleFile = (e: any, type: string) => { 
     const file = e.target.files[0];
     if (file) {
@@ -862,7 +915,7 @@ const ViewReporting = ({ ctx }: any) => {
       reader.onloadend = () => {
         setReportData(prev => ({
           ...prev, 
-          files: { ...prev.files, [type]: { name: file.name, type: file.type, data: reader.result } }
+          files: { ...prev.files, [type]: { name: file.name, type: file.type, data: reader.result } } // 'data: reader.result' berisi string URI data Base64
         }));
       };
       reader.readAsDataURL(file);
@@ -901,6 +954,7 @@ const ViewReporting = ({ ctx }: any) => {
               <h3 className="text-2xl font-black mb-8 text-slate-800 flex items-center"><FileText className="mr-3 text-red-500"/> Form Pelaporan: {evt.sport_type}</h3>
               <div className="space-y-8">
                 
+                {/* Realisasi vs Proposed */}
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-6 items-center justify-between">
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Anggaran Disetujui (Proposal)</p>
@@ -915,6 +969,7 @@ const ViewReporting = ({ ctx }: any) => {
                   </div>
                 </div>
 
+                {/* Kehadiran & Evaluasi */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="border-2 border-slate-100 p-6 rounded-2xl bg-white flex flex-col justify-center">
                     <p className="font-black text-slate-800 mb-4">Jumlah Kehadiran Aktual</p>
@@ -940,6 +995,7 @@ const ViewReporting = ({ ctx }: any) => {
                   </div>
                 </div>
 
+                {/* Upload Bukti */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
                   <p className="font-black text-blue-900 mb-5 flex items-center"><Paperclip className="w-5 h-5 mr-2"/> Unggah Dokumen Bukti</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -991,6 +1047,7 @@ const ViewReporting = ({ ctx }: any) => {
   );
 };
 
+// Sub-Component untuk Admin Settlement Card yang memiliki local state edit 
 const AdminSettlementCard = ({ evt, ctx }: any) => {
   const proposed = calculateTotalBudget(evt.budget_items);
   const [editCost, setEditCost] = useState(evt.report?.actual_cost || 0);
@@ -1801,6 +1858,7 @@ export default function App() {
 
       {/* Global Modals */}
       <EventDetailModal event={detailModalEvent} onClose={() => setDetailModalEvent(null)} ctx={ctx} />
+      {/* FIX: Memperbarui penanganan unduhan file nyata agar andal */}
       <FilePreviewModal fileObj={previewFile} onClose={() => setPreviewFile(null)} />
 
       {/* Global Toast */}

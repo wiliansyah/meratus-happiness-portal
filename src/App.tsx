@@ -22,6 +22,14 @@ if (typeof window !== 'undefined' && !document.getElementById('tailwind-cdn')) {
   document.head.appendChild(script);
 }
 
+// jsPDF Injection untuk konversi Image ke PDF Otomatis
+if (typeof window !== 'undefined' && !document.getElementById('jspdf-cdn')) {
+  const script = document.createElement('script');
+  script.id = 'jspdf-cdn';
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  document.head.appendChild(script);
+}
+
 // --- FIREBASE CONFIGURATION ---
 const fallbackConfig = {
   apiKey: 'AIzaSyAgZUtc5aZguYz_MW5zISkuLvDgPmDixfg',
@@ -117,7 +125,6 @@ const getStatusDisplay = (status: any) => {
   return map[status] || { label: status, color: 'bg-gray-100 text-gray-800', step: 0 };
 };
 
-// Fungsi Utilitas Konversi String Base64 murni ke format Blob yang stabil untuk di download
 const base64ToBlob = (base64Data, contentType) => {
   contentType = contentType || '';
   const sliceSize = 1024;
@@ -169,7 +176,6 @@ const FilePreviewModal = ({ fileObj, onClose }: any) => {
           document.body.removeChild(link);
           window.URL.revokeObjectURL(url);
         } else {
-          // Jika format data url kurang standar
           const link = document.createElement('a');
           link.href = fileData;
           link.download = fileName;
@@ -290,7 +296,7 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
           )}
 
           <div>
-            <h3 className="font-bold text-slate-800 mb-3 flex items-center"><DollarSign className="w-5 h-5 mr-2 text-emerald-600"/> Rincian Anggaran (Pengajuan)</h3>
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center"><DollarSign className="w-5 h-5 mr-2 text-emerald-600"/> Rincian Anggaran (Rencana)</h3>
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50"><tr className="border-b border-slate-200"><th className="p-4 font-bold text-slate-600">Item</th><th className="p-4 font-bold text-slate-600">Qty</th><th className="p-4 font-bold text-slate-600">Harga Satuan</th><th className="p-4 font-bold text-slate-600 text-right">Total</th></tr></thead>
@@ -361,7 +367,7 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
           )}
 
           {event.admin_notes && (
-            <div className="bg-orange-50 p-5 rounded-2xl border border-yellow-200 flex items-start shadow-sm">
+            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-5 rounded-2xl border border-yellow-200 flex items-start shadow-sm">
               <MessageSquare className="w-6 h-6 text-yellow-600 mr-3 mt-0.5" />
               <div>
                 <p className="text-xs font-extrabold text-yellow-800 uppercase mb-1 tracking-wider">Catatan Admin</p>
@@ -544,10 +550,10 @@ const ViewDashboard = ({ ctx }: any) => {
           <div className="relative z-10">
             <h3 className="font-black text-2xl mb-2 flex items-center text-white"><BellRing className="mr-3 w-6 h-6 animate-bounce text-yellow-300"/> Pengingat Jadwal Anda</h3>
             <p className="text-blue-100 font-medium">Jadwal kegiatan <b>{myProgram.sport}</b> adalah setiap hari <b>{myProgram.day}</b> ({myProgram.freqText}).</p>
-            <p className="text-sm mt-2 text-yellow-300 font-bold">Periode ini tercatat {currentPeriodEvents.length} pengajuan masuk.</p>
+            <p className="text-sm mt-2 text-yellow-300 font-bold">Periode ini tercatat {currentPeriodEvents.length} kegiatan masuk.</p>
           </div>
           <button onClick={() => ctx.setView('new_proposal')} className="bg-white text-indigo-700 hover:bg-blue-50 font-black px-6 py-3 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 flex-shrink-0 flex items-center">
-            Buat Proposal Sekarang <ArrowRight className="ml-2 w-4 h-4"/>
+            Catat Kegiatan Sekarang <ArrowRight className="ml-2 w-4 h-4"/>
           </button>
         </div>
       )}
@@ -739,7 +745,7 @@ const ViewDashboard = ({ ctx }: any) => {
         {/* Live Feed Event Terfilter */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full lg:col-span-1 max-h-[600px]">
           <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center"><Activity className="w-5 h-5 mr-2 text-red-600" /> 
-            {isPIC ? 'Status Pengajuan Periode Ini' : 'Daftar Kegiatan Berjalan'}
+            {isPIC ? 'Status Kegiatan Periode Ini' : 'Daftar Kegiatan Berjalan'}
           </h3>
           <div className="space-y-4 overflow-y-auto flex-grow pr-2 custom-scrollbar">
             {currentPeriodEvents.length === 0 ? (
@@ -797,15 +803,13 @@ const ViewDashboard = ({ ctx }: any) => {
   );
 };
 
-// 2. Form Pengajuan (Dengan Validasi Minimal 7 Peserta)
+// 2. Form Pencatatan Kegiatan (Langsung Status Funded/ACC)
 const ViewNewProposal = ({ ctx }: any) => {
   const defaultSport = ctx.user.sport || '';
   const defaultProgram = ctx.programs.find((p: any) => p.sport === defaultSport) || {};
   const [formData, setFormData] = useState<any>({ sport: defaultSport, date: '', venue: '', objective: '' });
   
-  // Inisialisasi awal dengan 7 baris kosong
-  const initialParticipants = Array(7).fill(null).map(() => ({ id: generateId(), name: '', dept: '' }));
-  const [participants, setParticipants] = useState<any[]>(initialParticipants);
+  const [participantCount, setParticipantCount] = useState<number | ''>('');
   
   const [budgetItems, setBudgetItems] = useState<any[]>([
     { desc: 'Sewa Lapangan/Vendor', qty: 1, unit: 'Sesi', price: defaultProgram.costPerSession || '' },
@@ -816,21 +820,30 @@ const ViewNewProposal = ({ ctx }: any) => {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    const validParticipants = participants.filter(p => p.name.trim() !== '');
     
-    if(validParticipants.length < 7) {
-      return ctx.showToast(`Pengajuan wajib minimal 7 peserta! Anda baru memasukkan ${validParticipants.length} nama.`, 'error');
+    const numPax = Number(participantCount);
+    
+    if(numPax < 7) {
+      return ctx.showToast(`Pengajuan wajib minimal 7 peserta! Anda baru memasukkan angka ${numPax}.`, 'error');
     }
+    
+    const dummyParticipants = Array(numPax).fill(null).map((_, i) => ({
+      id: generateId(),
+      name: `Peserta Rencana ${i + 1}`,
+      dept: '-'
+    }));
     
     const newEvent = {
       id: generateId(), pic_id: ctx.user.id, sport_type: formData.sport, event_date: new Date(formData.date).toISOString(),
-      venue_name: formData.venue, objective: formData.objective, status: 'pending_approval', participants: validParticipants,
+      venue_name: formData.venue, objective: formData.objective, 
+      status: 'funded', 
+      participants: dummyParticipants,
       budget_items: budgetItems.map((i) => ({ ...i, price: Number(i.price) })),
     };
     try {
       await ctx.addEvent(newEvent);
-      ctx.setView('dashboard');
-      ctx.showToast('Proposal berhasil diajukan kepada Admin!', 'success');
+      ctx.setView('reporting');
+      ctx.showToast('Jadwal berhasil dicatat! Silakan lanjut unggah bukti pelaporan akhir.', 'success');
     } catch (err) {
       ctx.showToast('Terjadi kesalahan saat menghubungi server.', 'error');
     }
@@ -839,12 +852,12 @@ const ViewNewProposal = ({ ctx }: any) => {
   return (
     <div className="max-w-4xl mx-auto animate-in fade-in duration-500">
       <div className="bg-white p-8 md:p-10 rounded-3xl shadow-sm border border-slate-200">
-        <h2 className="text-3xl font-black mb-8 text-slate-800 border-b border-slate-100 pb-5">Ajukan Proposal Baru</h2>
+        <h2 className="text-3xl font-black mb-8 text-slate-800 border-b border-slate-100 pb-5">Catat Jadwal Kegiatan Rutin</h2>
         
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl mb-8 flex items-start">
           <AlertCircle className="w-5 h-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
           <p className="text-sm font-bold text-blue-900 leading-relaxed">
-            Perhatian PIC: Berdasarkan SOP, setiap pengajuan proposal kegiatan wajib menyertakan <span className="text-red-600 font-black">minimal 7 nama peserta rencana</span>.
+            Perhatian PIC: Kegiatan rutin Anda telah <span className="text-emerald-600 font-black">disetujui (ACC) otomatis</span>. Silakan catat jadwal pelaksanaan di bawah ini (dengan <span className="text-red-600 font-black">minimal 7 peserta</span>) untuk langsung berlanjut ke form validasi/pelaporan akhir nota.
           </p>
         </div>
 
@@ -863,28 +876,29 @@ const ViewNewProposal = ({ ctx }: any) => {
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Objektif Kegiatan (Justifikasi)</label>
             <textarea required rows="2" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" placeholder="Contoh: Latihan rutin dan persiapan acara akhir tahun..." onChange={(e) => setFormData({ ...formData, objective: e.target.value })}></textarea>
           </div>
+          
           <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <label className="block text-sm font-black text-slate-800">Daftar Peserta (Rencana SBU/SFU)</label>
-                <p className="text-xs text-red-500 font-bold mt-1">* Wajib Minimal 7 Orang</p>
-              </div>
-              <button type="button" onClick={() => setParticipants([...participants, { id: generateId(), name: '', dept: '' }])} className="text-xs bg-white border border-slate-200 shadow-sm px-4 py-2 rounded-lg font-bold hover:bg-blue-50 transition-colors text-blue-700 flex items-center"><Plus className="w-4 h-4 mr-1"/> Tambah Baris</button>
+            <div className="mb-4">
+              <label className="block text-sm font-black text-slate-800">Jumlah Rencana Peserta</label>
+              <p className="text-xs text-red-500 font-bold mt-1">* Wajib Minimal 7 Orang</p>
             </div>
-            <div className="space-y-3">
-              {participants.map((p, idx) => (
-                <div key={p.id} className="flex gap-3 items-center">
-                  <span className="text-xs font-black text-slate-400 w-5 text-right">{idx+1}.</span>
-                  <input type="text" placeholder="Nama Lengkap" className="flex-grow p-3 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-blue-500" value={p.name} onChange={e => { const arr = [...participants]; arr[idx] = {...arr[idx], name: e.target.value}; setParticipants(arr); }} />
-                  <input type="text" placeholder="SBU/SFU" className="w-1/3 p-3 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-blue-500" value={p.dept} onChange={e => { const arr = [...participants]; arr[idx] = {...arr[idx], dept: e.target.value}; setParticipants(arr); }} />
-                  <button type="button" onClick={() => setParticipants(participants.filter((_, i) => i !== idx))} className="p-3 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={20}/></button>
-                </div>
-              ))}
+            <div className="relative max-w-xs">
+              <Users className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+              <input 
+                type="number" 
+                min="7" 
+                required 
+                placeholder="Masukkan jumlah..." 
+                className="w-full pl-12 pr-4 py-3 border-2 border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-blue-500 font-bold" 
+                value={participantCount} 
+                onChange={e => setParticipantCount(e.target.value)} 
+              />
             </div>
           </div>
+
           <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
             <div className="flex justify-between items-center mb-5">
-              <h3 className="font-black text-blue-900">Rincian Anggaran</h3>
+              <h3 className="font-black text-blue-900">Rincian Anggaran Awal</h3>
               <button type="button" onClick={() => setBudgetItems([...budgetItems, { desc: '', qty: 1, unit: 'Sesi', price: '' }])} className="text-xs bg-white shadow-sm border border-slate-200 px-4 py-2 rounded-lg font-bold text-blue-700 hover:bg-slate-50 flex items-center"><Plus className="w-4 h-4 mr-1"/> Tambah Item</button>
             </div>
             <div className="space-y-3">
@@ -898,11 +912,11 @@ const ViewNewProposal = ({ ctx }: any) => {
               ))}
             </div>
             <div className="mt-6 text-right pt-6 border-t border-blue-200">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Total Nilai Pengajuan</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Total Rencana Anggaran</p>
               <p className="text-3xl font-black text-blue-900">{formatCurrency(totalProp)}</p>
             </div>
           </div>
-          <button type="submit" className="w-full bg-blue-800 hover:bg-blue-900 transition-all text-white font-black text-lg py-5 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5">Kirim Pengajuan Proposal</button>
+          <button type="submit" className="w-full bg-blue-800 hover:bg-blue-900 transition-all text-white font-black text-lg py-5 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5">Catat Kegiatan & Lanjut Pelaporan</button>
         </form>
       </div>
     </div>
@@ -921,12 +935,10 @@ const ViewReporting = ({ ctx }: any) => {
     setReportData({ ...reportData, actual_cost: calculateTotalBudget(evt.budget_items), attended: evt.participants?.length || 0 }); 
   };
 
-  // Logika pemrosesan File yang dioptimalkan untuk Cloud Storage 1MB Limit
   const handleFile = (e: any, type: string) => { 
     const file = e.target.files[0];
     if (!file) return;
 
-    // Keamanan untuk PDF agar tidak menggagalkan sinkronisasi cloud
     if (file.type === 'application/pdf' && file.size > 800 * 1024) {
       ctx.showToast('Maaf, ukuran PDF terlalu besar (Maks 800KB). Harap kompres file Anda.', 'error');
       return;
@@ -936,14 +948,13 @@ const ViewReporting = ({ ctx }: any) => {
     reader.onloadend = () => {
       const fileData = reader.result as string;
 
-      // Jika file berupa gambar, lakukan kompresi agresif dengan canvas
       if (file.type.startsWith('image/')) {
         const img = new Image();
         img.onload = () => {
           try {
             let width = img.width;
             let height = img.height;
-            const MAX_DIMENSION = 800; // Membatasi dimensi agar base64 tetap di bawah 200KB
+            const MAX_DIMENSION = 800; 
             
             if (width > height && width > MAX_DIMENSION) {
               height = Math.round(height * (MAX_DIMENSION / width));
@@ -964,10 +975,8 @@ const ViewReporting = ({ ctx }: any) => {
               canvasCtx.drawImage(img, 0, 0, width, height);
             }
 
-            // Hasil kompresi menjadi JPEG berkualitas 60%
             const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
             
-            // Simpan sebagai file JPEG agar aman & sangat ringan (menyelesaikan masalah upload Firebase)
             setReportData(prev => ({
               ...prev, 
               files: { ...prev.files, [type]: { name: file.name, type: 'image/jpeg', data: compressedDataUrl } }
@@ -984,7 +993,6 @@ const ViewReporting = ({ ctx }: any) => {
         };
         img.src = fileData;
       } else {
-        // Jika file BUKAN gambar (Contoh PDF)
         setReportData(prev => ({
           ...prev, 
           files: { ...prev.files, [type]: { name: file.name, type: file.type, data: fileData } } 
@@ -1029,10 +1037,9 @@ const ViewReporting = ({ ctx }: any) => {
               <h3 className="text-2xl font-black mb-8 text-slate-800 flex items-center"><FileText className="mr-3 text-red-500"/> Form Pelaporan: {evt.sport_type}</h3>
               <div className="space-y-8">
                 
-                {/* Realisasi vs Proposed */}
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-6 items-center justify-between">
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Anggaran Disetujui (Proposal)</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Rencana Anggaran Awal</p>
                     <p className="text-2xl font-black text-slate-400 line-through mt-1">{formatCurrency(calculateTotalBudget(evt.budget_items))}</p>
                   </div>
                   <div className="flex-grow w-full md:w-auto md:max-w-sm">
@@ -1197,9 +1204,10 @@ const AdminSettlementCard = ({ evt, ctx }: any) => {
   );
 };
 
-// 4. Admin Approvals
+// 4. Admin Approvals & Tracking
 const ViewAdminApprovals = ({ ctx }: any) => {
-  const pendingApprovals = ctx.events.filter((e: any) => e.status === 'pending_approval');
+  // FIX: Gabungkan status 'pending_approval' (utk legacy) dan 'funded' untuk pantauan jadwal berjalan
+  const ongoingEvents = ctx.events.filter((e: any) => ['pending_approval', 'funded'].includes(e.status));
   const pendingSettlements = ctx.events.filter((e: any) => e.status === 'pending_settlement');
   const [adminNotes, setAdminNotes] = useState<any>({});
 
@@ -1207,7 +1215,7 @@ const ViewAdminApprovals = ({ ctx }: any) => {
     try {
       await ctx.updateEvent(id, { status: newStatus, admin_notes: adminNotes[id] || '' });
       setAdminNotes((prev: any) => ({...prev, [id]: ''}));
-      ctx.showToast('Keputusan Proposal berhasil disimpan!', 'success');
+      ctx.showToast('Keputusan berhasil disimpan!', 'success');
     } catch(err) {
       ctx.showToast('Gagal menyimpan keputusan', 'error');
     }
@@ -1216,11 +1224,14 @@ const ViewAdminApprovals = ({ ctx }: any) => {
   return (
     <div className="space-y-12 max-w-6xl mx-auto animate-in fade-in duration-500">
       <div>
-        <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center"><Activity className="mr-3 text-blue-600"/> 1. Persetujuan Proposal Baru</h2>
+        {/* FIX: Ubah wording dari "Persetujuan Proposal" menjadi "Pantauan Jadwal Berjalan" */}
+        <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center"><Activity className="mr-3 text-blue-600"/> 1. Pantauan Jadwal Berjalan & Persetujuan</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {pendingApprovals.length === 0 && <div className="col-span-2 bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center text-slate-400 font-bold">Tidak ada proposal baru yang diajukan.</div>}
-          {pendingApprovals.map((evt: any) => {
+          {ongoingEvents.length === 0 && <div className="col-span-2 bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center text-slate-400 font-bold">Tidak ada jadwal kegiatan yang sedang berjalan atau menunggu persetujuan.</div>}
+          {ongoingEvents.map((evt: any) => {
             const pic = ctx.accounts.find((a: any) => a.id === evt.pic_id);
+            const isLegacyPending = evt.status === 'pending_approval';
+            
             return (
               <div key={evt.id} className="bg-white border-2 border-yellow-100 hover:border-yellow-300 shadow-sm hover:shadow-lg transition-all p-6 rounded-3xl">
                 <div className="flex justify-between border-b border-slate-100 pb-4 mb-4">
@@ -1245,11 +1256,25 @@ const ViewAdminApprovals = ({ ctx }: any) => {
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Objektif Kegiatan</p>
                   <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed font-medium">{evt.objective}</p>
                 </div>
-                <input type="text" placeholder="Tambahkan catatan (Opsional)" className="w-full text-sm p-3 border-2 border-slate-100 rounded-xl mb-4 bg-white focus:border-blue-400 focus:ring-0 outline-none transition-colors" value={adminNotes[evt.id] || ''} onChange={e => setAdminNotes({...adminNotes, [evt.id]: e.target.value})} />
-                <div className="flex gap-3">
-                  <button onClick={() => handleApprove(evt.id, 'rejected')} className="px-5 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-black rounded-xl border border-red-200 transition-colors shadow-sm">Tolak</button>
-                  <button onClick={() => handleApprove(evt.id, 'funded')} className="flex-grow bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 flex justify-center items-center transition-all"><CheckCircle className="w-5 h-5 mr-2"/> Setujui Proposal</button>
-                </div>
+                
+                {/* FIX: Jika event sudah funded (ACC), cukup tampilkan status berjalan. Jika pending (legacy), tampilkan tombol ACC */}
+                {isLegacyPending ? (
+                  <>
+                    <input type="text" placeholder="Tambahkan catatan (Opsional)" className="w-full text-sm p-3 border-2 border-slate-100 rounded-xl mb-4 bg-white focus:border-blue-400 focus:ring-0 outline-none transition-colors" value={adminNotes[evt.id] || ''} onChange={e => setAdminNotes({...adminNotes, [evt.id]: e.target.value})} />
+                    <div className="flex gap-3">
+                      <button onClick={() => handleApprove(evt.id, 'rejected')} className="px-5 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-black rounded-xl border border-red-200 transition-colors shadow-sm">Tolak</button>
+                      <button onClick={() => handleApprove(evt.id, 'funded')} className="flex-grow bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 flex justify-center items-center transition-all"><CheckCircle className="w-5 h-5 mr-2"/> Setujui Proposal</button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center">
+                    <Activity className="w-6 h-6 text-blue-500 mr-3 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-blue-900">Kegiatan telah dijadwalkan secara otomatis.</p>
+                      <p className="text-xs text-blue-700 font-medium mt-0.5">Sistem sedang menunggu PIC melaksanakan kegiatan & mengunggah laporan akhir dokumen.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -1269,16 +1294,26 @@ const ViewAdminApprovals = ({ ctx }: any) => {
   );
 };
 
-// 5. Database dengan Search & Filter Bulan + Add/Delete Manual Arsip
+// 5. Database dengan Search & Filter Bulan + Status Filter
 const ViewDatabase = ({ ctx }: any) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMonth, setFilterMonth] = useState(''); 
+  const [filterStatus, setFilterStatus] = useState('completed'); // FIX: Tambahkan Filter Status Database
   const [showAddModal, setShowAddModal] = useState(false);
   
-  const [newArchive, setNewArchive] = useState({ sport_type: '', event_date: '', venue_name: '', attended: 0, actual_cost: 0 });
+  const picAccounts = ctx.accounts.filter((a: any) => a.role === ROLES.PIC);
   
+  const [newArchive, setNewArchive] = useState({ pic_id: '', event_date: '', venue_name: '', attended: 0, actual_cost: 0 });
+  
+  // FIX: Sesuaikan Filter Display Events agar Admin juga bisa memonitor yang 'ongoing' dari Arsip (Database)
   let displayEvents = ctx.events
-    .filter((e: any) => e.status === 'completed' && (ctx.user.role === ROLES.ADMIN || e.pic_id === ctx.user.id))
+    .filter((e: any) => {
+      if (ctx.user.role !== ROLES.ADMIN && e.pic_id !== ctx.user.id) return false;
+      
+      if (filterStatus === 'all') return true;
+      if (filterStatus === 'ongoing') return ['funded', 'pending_settlement'].includes(e.status);
+      return e.status === 'completed'; // default
+    })
     .sort((a: any, b: any) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
 
   if (filterMonth) {
@@ -1301,10 +1336,16 @@ const ViewDatabase = ({ ctx }: any) => {
 
   const handleAddArchive = async (e: any) => {
     e.preventDefault();
+    
+    const selectedPic = ctx.accounts.find((a: any) => a.id === newArchive.pic_id);
+    if (!selectedPic) {
+      return ctx.showToast('Silakan pilih PIC/Cabor terlebih dahulu.', 'error');
+    }
+    
     const archiveEvent = {
         id: generateId(),
-        pic_id: ctx.user.id,
-        sport_type: newArchive.sport_type,
+        pic_id: selectedPic.id,
+        sport_type: selectedPic.sport,
         event_date: new Date(newArchive.event_date).toISOString(),
         venue_name: newArchive.venue_name,
         status: 'completed',
@@ -1312,15 +1353,14 @@ const ViewDatabase = ({ ctx }: any) => {
             attended: Number(newArchive.attended),
             actual_cost: Number(newArchive.actual_cost),
             rating: 5,
-            notes: 'Arsip histori ditambahkan secara manual.',
+            notes: 'Arsip histori ditambahkan secara manual oleh Admin.',
             files: {}
         },
-        budget_items: [{ desc: 'Realisasi Arsip', qty: 1, unit: 'Lumpsum', price: Number(newArchive.actual_cost) }]
+        budget_items: [{ desc: 'Realisasi Arsip Manual', qty: 1, unit: 'Lumpsum', price: Number(newArchive.actual_cost) }]
     };
     await ctx.addEvent(archiveEvent);
     setShowAddModal(false);
-    setNewArchive({ sport_type: '', event_date: '', venue_name: '', attended: 0, actual_cost: 0 });
-    ctx.showToast('Data arsip manual berhasil ditambahkan.', 'success');
+    ctx.showToast('Data arsip manual berhasil ditambahkan dan terhubung dengan PIC terkait.', 'success');
   };
 
   return (
@@ -1328,8 +1368,8 @@ const ViewDatabase = ({ ctx }: any) => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-3xl font-black text-slate-800 flex items-center"><Database className="mr-3 text-blue-600 w-8 h-8" /> Arsip Database Program</h2>
         
-        <div className="flex w-full md:w-auto gap-3">
-          <div className="relative flex-grow md:w-64">
+        <div className="flex flex-wrap w-full md:w-auto gap-3">
+          <div className="relative flex-grow md:w-48">
             <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
             <input type="text" placeholder="Cari program / venue..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500" />
           </div>
@@ -1337,7 +1377,23 @@ const ViewDatabase = ({ ctx }: any) => {
             <Filter className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
             <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="pl-9 pr-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white" />
           </div>
-          <button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center transition-colors shadow-sm whitespace-nowrap">
+          {/* FIX: Dropdown Status Filter */}
+          <div className="relative">
+            <Activity className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="pl-9 pr-8 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white appearance-none cursor-pointer">
+              <option value="completed">Arsip Selesai</option>
+              <option value="ongoing">Sedang Berjalan</option>
+              <option value="all">Semua Status</option>
+            </select>
+          </div>
+          <button 
+            onClick={() => {
+              if (picAccounts.length > 0 && !newArchive.pic_id) {
+                setNewArchive(prev => ({ ...prev, pic_id: picAccounts[0].id }));
+              }
+              setShowAddModal(true);
+            }} 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center transition-colors shadow-sm whitespace-nowrap">
             <Plus className="w-4 h-4 mr-2" /> Tambah Arsip
           </button>
         </div>
@@ -1351,8 +1407,17 @@ const ViewDatabase = ({ ctx }: any) => {
           </div>
           <form onSubmit={handleAddArchive} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Cabor / Program</label>
-              <input type="text" required placeholder="Cth: Tenis Meja" className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500" value={newArchive.sport_type} onChange={e => setNewArchive({...newArchive, sport_type: e.target.value})} />
+              <label className="block text-xs font-bold text-slate-500 mb-1">Cabor / PIC</label>
+              <select 
+                required 
+                className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500 bg-white" 
+                value={newArchive.pic_id} 
+                onChange={e => setNewArchive({...newArchive, pic_id: e.target.value})}
+              >
+                {picAccounts.map((pic: any) => (
+                  <option key={pic.id} value={pic.id}>{pic.sport} ({pic.name})</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Tanggal</label>
@@ -1400,11 +1465,15 @@ const ViewDatabase = ({ ctx }: any) => {
                   <tr key={evt.id} className="hover:bg-blue-50/40 transition-colors group">
                     <td className="p-5 text-slate-700 text-sm font-bold">{new Date(evt.event_date).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</td>
                     <td className="p-5">
-                      <p className="font-black text-blue-900">{evt.sport_type}</p>
+                      {/* FIX: Tampilkan status badge kecil jika event belum completed */}
+                      <p className="font-black text-blue-900 flex items-center">
+                        {evt.sport_type}
+                        {evt.status !== 'completed' && <span className="ml-2 bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded uppercase tracking-wider shadow-sm">Berjalan</span>}
+                      </p>
                       <p className="text-xs text-slate-500 font-bold mt-1">{picName}</p>
                     </td>
                     <td className="p-5 text-center">
-                      <span className="bg-slate-100 text-slate-700 font-black text-xs px-3 py-1.5 rounded-lg border border-slate-200 group-hover:bg-white transition-colors">{evt.report?.attended || 0} Orang</span>
+                      <span className="bg-slate-100 text-slate-700 font-black text-xs px-3 py-1.5 rounded-lg border border-slate-200 group-hover:bg-white transition-colors">{evt.report?.attended || evt.participants?.length || 0} Orang</span>
                     </td>
                     <td className="p-5 font-black text-emerald-600 text-lg text-right">{formatCurrency(actualCost)}</td>
                     <td className="p-5 text-center whitespace-nowrap">
@@ -1897,7 +1966,8 @@ export default function App() {
             <NavBtn id="dashboard" label="Dashboard" icon={<PieChart size={18} />} />
             {user.role === ROLES.PIC && (
               <>
-                <NavBtn id="new_proposal" label="Pengajuan" icon={<Plus size={18} />} />
+                {/* FIX: Ubah wording navigasi menjadi Catat Kegiatan */}
+                <NavBtn id="new_proposal" label="Catat Kegiatan" icon={<Plus size={18} />} />
                 <NavBtn id="reporting" label="Laporan Akhir" icon={<Upload size={18} />} badge={picPendingReport} />
               </>
             )}

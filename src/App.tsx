@@ -22,14 +22,6 @@ if (typeof window !== 'undefined' && !document.getElementById('tailwind-cdn')) {
   document.head.appendChild(script);
 }
 
-// jsPDF Injection untuk konversi Image ke PDF Otomatis
-if (typeof window !== 'undefined' && !document.getElementById('jspdf-cdn')) {
-  const script = document.createElement('script');
-  script.id = 'jspdf-cdn';
-  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-  document.head.appendChild(script);
-}
-
 // --- FIREBASE CONFIGURATION ---
 const fallbackConfig = {
   apiKey: 'AIzaSyAgZUtc5aZguYz_MW5zISkuLvDgPmDixfg',
@@ -306,7 +298,7 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
                   {event.budget_items?.map((it: any, i: number) => (
                     <tr key={i} className="border-b border-slate-100 last:border-0"><td className="p-4">{it.desc}</td><td className="p-4">{it.qty} {it.unit}</td><td className="p-4">{formatCurrency(it.price)}</td><td className="p-4 font-semibold text-right">{formatCurrency(it.price * it.qty)}</td></tr>
                   ))}
-                  <tr className="bg-blue-50"><td colSpan="3" className="p-4 text-right font-bold text-slate-700">Total Pengajuan:</td><td className="p-4 font-black text-blue-900 text-right text-lg">{formatCurrency(proposedTotal)}</td></tr>
+                  <tr className="bg-blue-50/50"><td colSpan="3" className="p-4 text-right font-bold text-slate-700">Total Pengajuan:</td><td className="p-4 font-black text-blue-900 text-right text-lg">{formatCurrency(proposedTotal)}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -341,7 +333,7 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 h-full">
+                  <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 h-full">
                     <p className="text-xs font-bold text-blue-900 uppercase mb-4 tracking-wider">Lampiran Dokumen</p>
                     <ul className="space-y-3 text-sm text-blue-700 font-medium">
                       {['nota', 'absensi', 'foto'].map(fileKey => {
@@ -929,31 +921,36 @@ const ViewReporting = ({ ctx }: any) => {
     setReportData({ ...reportData, actual_cost: calculateTotalBudget(evt.budget_items), attended: evt.participants?.length || 0 }); 
   };
 
-  // Konversi otomatis file gambar menjadi PDF dan kompresi jika besar
+  // Logika pemrosesan File yang dioptimalkan untuk Cloud Storage 1MB Limit
   const handleFile = (e: any, type: string) => { 
     const file = e.target.files[0];
     if (!file) return;
+
+    // Keamanan untuk PDF agar tidak menggagalkan sinkronisasi cloud
+    if (file.type === 'application/pdf' && file.size > 800 * 1024) {
+      ctx.showToast('Maaf, ukuran PDF terlalu besar (Maks 800KB). Harap kompres file Anda.', 'error');
+      return;
+    }
 
     const reader = new FileReader();
     reader.onloadend = () => {
       const fileData = reader.result as string;
 
-      // Jika file adalah gambar, konversi langsung menjadi file PDF
+      // Jika file berupa gambar, lakukan kompresi agresif dengan canvas
       if (file.type.startsWith('image/')) {
         const img = new Image();
         img.onload = () => {
           try {
-            // Kompresi ukuran jika lebih dari 1000px untuk optimasi database Cloud (1MB Max)
             let width = img.width;
             let height = img.height;
-            const MAX_SIZE = 1000;
+            const MAX_DIMENSION = 800; // Membatasi dimensi agar base64 tetap di bawah 200KB
             
-            if (width > height && width > MAX_SIZE) {
-              height = Math.round(height * (MAX_SIZE / width));
-              width = MAX_SIZE;
-            } else if (height > MAX_SIZE) {
-              width = Math.round(width * (MAX_SIZE / height));
-              height = MAX_SIZE;
+            if (width > height && width > MAX_DIMENSION) {
+              height = Math.round(height * (MAX_DIMENSION / width));
+              width = MAX_DIMENSION;
+            } else if (height > MAX_DIMENSION) {
+              width = Math.round(width * (MAX_DIMENSION / height));
+              height = MAX_DIMENSION;
             }
 
             const canvas = document.createElement('canvas');
@@ -967,47 +964,35 @@ const ViewReporting = ({ ctx }: any) => {
               canvasCtx.drawImage(img, 0, 0, width, height);
             }
 
-            const compressedImg = canvas.toDataURL('image/jpeg', 0.7);
-
-            // Jika JS PDF library tersedia dari CDN, langsung convert menjadi PDF
-            if (window.jspdf && window.jspdf.jsPDF) {
-              const { jsPDF } = window.jspdf;
-              const orientation = width > height ? 'l' : 'p';
-              const doc = new jsPDF({ orientation, unit: 'px', format: [width, height] });
-              doc.addImage(compressedImg, 'JPEG', 0, 0, width, height);
-              const pdfDataUri = doc.output('datauristring');
-              
-              const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".pdf";
-              setReportData(prev => ({
-                ...prev, 
-                files: { ...prev.files, [type]: { name: newFileName, type: 'application/pdf', data: pdfDataUri } }
-              }));
-              
-              ctx.showToast(`Sukses memproses & mengkonversi ${file.name} menjadi dokumen PDF!`, 'success');
-            } else {
-               // Fallback: Jika internet jelek & CDN belum termuat, simpan file sebagai gambar yang dikompres saja
-               setReportData(prev => ({
-                ...prev, 
-                files: { ...prev.files, [type]: { name: file.name, type: file.type, data: compressedImg } }
-              }));
-            }
-          } catch(err) {
-            console.error("Gagal melakukan optimasi/konversi PDF:", err);
-            // Fallback fatal (simpan murni file mentah)
+            // Hasil kompresi menjadi JPEG berkualitas 60%
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            
+            // Simpan sebagai file JPEG agar aman & sangat ringan (menyelesaikan masalah upload Firebase)
             setReportData(prev => ({
               ...prev, 
-              files: { ...prev.files, [type]: { name: file.name, type: file.type, data: fileData } }
+              files: { ...prev.files, [type]: { name: file.name, type: 'image/jpeg', data: compressedDataUrl } }
             }));
+            
+            ctx.showToast(`Sukses memproses & mengkompresi gambar: ${file.name}`, 'success');
+            
+          } catch(err) {
+            ctx.showToast('Terjadi kesalahan saat memproses gambar.', 'error');
           }
+        };
+        img.onerror = () => {
+           ctx.showToast('Gagal memproses gambar. Format mungkin tidak didukung.', 'error');
         };
         img.src = fileData;
       } else {
-        // Jika file bukan gambar (contoh: Upload langsung format PDF)
+        // Jika file BUKAN gambar (Contoh PDF)
         setReportData(prev => ({
           ...prev, 
           files: { ...prev.files, [type]: { name: file.name, type: file.type, data: fileData } } 
         }));
       }
+    };
+    reader.onerror = () => {
+       ctx.showToast('Gagal membaca file perangkat.', 'error');
     };
     reader.readAsDataURL(file);
   };
@@ -1021,7 +1006,7 @@ const ViewReporting = ({ ctx }: any) => {
       setReportingId(null);
       ctx.showToast('Laporan berhasil dikirim untuk validasi Admin!', 'success');
     } catch (error) {
-      ctx.showToast('Gagal mengirim laporan.', 'error');
+      ctx.showToast('Gagal mengirim laporan. Coba kurangi ukuran file Anda.', 'error');
     }
   };
 

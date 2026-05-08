@@ -119,36 +119,44 @@ const getStatusDisplay = (status: any) => {
 
 // --- REUSABLE COMPONENTS ---
 
+// FIX: Komponen FilePreviewModal yang sudah disempurnakan logikanya
 const FilePreviewModal = ({ fileObj, onClose }: any) => {
   if (!fileObj) return null;
   
   const isLegacyString = typeof fileObj === 'string';
-  const fileName = isLegacyString ? fileObj : fileObj.name;
+  const fileName = isLegacyString ? fileObj : (fileObj.name || 'document');
   const ext = fileName.split('.').pop().toLowerCase();
-  const isImage = isLegacyString ? ['jpg', 'jpeg', 'png', 'gif'].includes(ext) : fileObj.type?.startsWith('image/');
-  const isPdf = isLegacyString ? ext === 'pdf' : fileObj.type === 'application/pdf';
+  
+  // Memastikan tipe file dikenali dengan akurat
+  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext) || (!isLegacyString && fileObj.type?.startsWith('image/'));
+  const isPdf = ['pdf'].includes(ext) || (!isLegacyString && fileObj.type === 'application/pdf');
   const fileData = isLegacyString ? null : fileObj.data;
 
-  // FIX: Menggunakan implementasi unduhan yang lebih kuat untuk URI data URI Base64
-  const handleDownload = () => {
+  // Fitur Download yang dikonversi dari Base64 via Native fetch untuk kompabilitas yang kuat
+  const handleDownload = async () => {
     if (!isLegacyString && fileData) {
-      const parts = fileData.split(';base64,');
-      if (parts.length === 2) {
-        const contentType = parts[0].split(':')[1];
-        const base64Data = parts[1];
-        const blob = base64ToBlob(base64Data, contentType);
-        const url = URL.createObjectURL(blob);
+      try {
+        const response = await fetch(fileData);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } else {
-        console.error("Format data URI tidak valid untuk pengunduhan.");
+        window.URL.revokeObjectURL(url);
+      } catch (e) {
+        // Fallback klasik jika fetch gagal
+        const link = document.createElement('a');
+        link.href = fileData;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
     } else {
+      // Fallback bagi file yang berupa mock (string lama)
       const content = `--- MERATUS HAPPINESS DOCUMENT ---\nNama Dokumen: ${fileName}\n\n(Dokumen simulasi di-generate sistem karena data adalah mock/legacy.)`;
       const blob = new Blob([content], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
@@ -162,28 +170,6 @@ const FilePreviewModal = ({ fileObj, onClose }: any) => {
     }
   };
 
-  // Fungsi utilitas untuk mengonversi Base64 menjadi Blob
-  const base64ToBlob = (base64Data, contentType) => {
-    contentType = contentType || '';
-    const sliceSize = 1024;
-    const byteCharacters = atob(base64Data);
-    const bytesLength = byteCharacters.length;
-    const slicesCount = Math.ceil(bytesLength / sliceSize);
-    const byteArrays = new Array(slicesCount);
-
-    for (let sliceIndex = 0; sliceIndex < slicesCount; ++sliceIndex) {
-      const begin = sliceIndex * sliceSize;
-      const end = Math.min(begin + sliceSize, bytesLength);
-
-      const bytes = new Array(end - begin);
-      for (let offset = begin, i = 0; offset < end; ++i, ++offset) {
-        bytes[i] = byteCharacters[offset].charCodeAt(0);
-      }
-      byteArrays[sliceIndex] = new Uint8Array(bytes);
-    }
-    return new Blob(byteArrays, { type: contentType });
-  };
-
   return (
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex justify-center items-center p-4 md:p-10 animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-full max-h-[85vh] flex flex-col overflow-hidden transform transition-all scale-in-95">
@@ -194,12 +180,20 @@ const FilePreviewModal = ({ fileObj, onClose }: any) => {
         <div className="flex-grow bg-slate-200 flex justify-center items-center p-6 overflow-hidden relative">
           {isImage ? (
             <img src={fileData || `https://placehold.co/800x600/e2e8f0/475569?text=Preview+Foto+${encodeURIComponent(fileName)}`} alt="preview" className="max-w-full max-h-full rounded-xl shadow-md object-contain" />
-          ) : isPdf && fileData ? (
-            // FIX: Menggunakan iframe untuk pratinjau PDF yang lebih baik jika data URI tersedia
-            <iframe src={fileData} className="w-full h-full rounded-xl shadow-md border-0 bg-white" title="PDF Preview"></iframe>
+          ) : isPdf ? (
+            fileData ? (
+              <iframe src={fileData} className="w-full h-full rounded-xl shadow-md border-0 bg-white" title="PDF Preview"></iframe>
+            ) : (
+              <div className="bg-white p-12 rounded-3xl shadow-lg flex flex-col items-center max-w-md w-full text-center border border-slate-100">
+                <div className="bg-red-50 p-6 rounded-full mb-6"><FileText className="w-20 h-20 text-red-500"/></div>
+                <p className="text-xl font-black text-slate-800 mb-2">Pratinjau Dokumen PDF</p>
+                <p className="text-slate-500 font-medium text-sm border-t pt-4 w-full truncate px-4">{fileName}</p>
+                <p className="text-xs text-orange-500 mt-2 font-bold">(Pratinjau PDF mock data tidak tersedia, silakan unduh file simulasinya)</p>
+              </div>
+            )
           ) : (
             <div className="bg-white p-12 rounded-3xl shadow-lg flex flex-col items-center max-w-md w-full text-center border border-slate-100">
-              <div className="bg-red-50 p-6 rounded-full mb-6"><FileText className="w-20 h-20 text-red-500"/></div>
+              <div className="bg-blue-50 p-6 rounded-full mb-6"><FileText className="w-20 h-20 text-blue-500"/></div>
               <p className="text-xl font-black text-slate-800 mb-2">Pratinjau Dokumen {ext.toUpperCase()}</p>
               <p className="text-slate-500 font-medium text-sm border-t pt-4 w-full truncate px-4">{fileName}</p>
               {!fileData && <p className="text-xs text-orange-500 mt-2 font-bold">(Pratinjau mock data tidak tersedia)</p>}
@@ -384,7 +378,8 @@ const LoginScreen = ({ ctx }: any) => {
       </div>
 
       <div className="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 relative z-10">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 via-blue-400 to-red-500"></div>
+        {/* FIX: Perubahan gradient dinamis ke warna solid untuk kestabilan CDN */}
+        <div className="absolute top-0 left-0 w-full h-2 bg-blue-600"></div>
         <div className="flex justify-center mb-8">
           <div className="bg-gradient-to-br from-red-50 to-red-100 p-5 rounded-full shadow-inner border border-red-100">
             <HeartPulse className="text-red-600 w-12 h-12" />
@@ -408,7 +403,8 @@ const LoginScreen = ({ ctx }: any) => {
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-12 pr-4 py-3.5 border-2 border-slate-200 rounded-xl focus:ring-0 focus:border-blue-600 outline-none transition-colors font-semibold" placeholder="••••••••" />
             </div>
           </div>
-          <button type="submit" className="w-full bg-gradient-to-r from-blue-800 to-blue-900 text-white font-black py-4 rounded-xl mt-8 hover:shadow-lg hover:-translate-y-0.5 transition-all flex justify-center items-center">
+          {/* FIX: Pengubahan tombol dengan warna background yang solid */}
+          <button type="submit" className="w-full bg-blue-800 hover:bg-blue-900 text-white font-black py-4 rounded-xl mt-8 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all flex justify-center items-center">
             Masuk Sistem <ArrowRight className="ml-2 w-5 h-5"/>
           </button>
         </form>
@@ -521,14 +517,12 @@ const ViewDashboard = ({ ctx }: any) => {
       
       {/* SMART REMINDER BANNER FOR PIC */}
       {isPIC && myProgram && (
-        // FIX: Spanduk pengingat jadwal PIC, memperbarui kontras teks judul dan deskripsi agar terbaca dengan baik.
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
+        // FIX: Warna latar dirubah ke kelas warna biru yang standar (bg-blue-700) untuk mengatasi isu gradien transparan di browser CDN
+        <div className="bg-blue-700 rounded-3xl p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
           <div className="absolute right-0 top-0 opacity-10 transform translate-x-8 -translate-y-8 pointer-events-none"><BellRing className="w-48 h-48" /></div>
           <div className="relative z-10">
-            {/* FIX: Warna teks judul diubah dari putih menjadi biru tua untuk kontras yang lebih baik */}
-            <h3 className="font-black text-2xl mb-2 flex items-center text-blue-900 shadow-none"><BellRing className="mr-3 w-6 h-6 animate-bounce text-yellow-300"/> Pengingat Jadwal Anda</h3>
-            {/* FIX: Warna teks deskripsi diubah dari biru muda menjadi biru tua yang sedikit lebih terang agar lebih jelas terbaca */}
-            <p className="text-blue-900 font-medium">Jadwal kegiatan <b>{myProgram.sport}</b> adalah setiap hari <b>{myProgram.day}</b> ({myProgram.freqText}).</p>
+            <h3 className="font-black text-2xl mb-2 flex items-center"><BellRing className="mr-3 w-6 h-6 animate-bounce text-yellow-300"/> Pengingat Jadwal Anda</h3>
+            <p className="text-blue-100 font-medium">Jadwal kegiatan <b>{myProgram.sport}</b> adalah setiap hari <b>{myProgram.day}</b> ({myProgram.freqText}).</p>
             <p className="text-sm mt-2 text-yellow-300 font-bold">Periode ini tercatat {currentPeriodEvents.length} pengajuan masuk.</p>
           </div>
           <button onClick={() => ctx.setView('new_proposal')} className="bg-white text-indigo-700 hover:bg-blue-50 font-black px-6 py-3 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 flex-shrink-0 flex items-center">
@@ -541,8 +535,7 @@ const ViewDashboard = ({ ctx }: any) => {
       {!isPIC && (
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
           <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none transform translate-x-4 translate-y-4"><CalendarDays className="w-48 h-48" /></div>
-          {/* FIX: Memperbarui teks judul agar seragam dan memiliki kontras warna yang baik */}
-          <h3 className="text-lg font-black text-slate-800 mb-5 flex items-center relative z-10 text-slate-800 shadow-none"><CalendarDays className="w-5 h-5 mr-2 text-indigo-600" /> Kalender & Jadwal Program Rutin</h3>
+          <h3 className="text-lg font-black text-slate-800 mb-5 flex items-center relative z-10"><CalendarDays className="w-5 h-5 mr-2 text-indigo-600" /> Kalender & Jadwal Program Rutin</h3>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3 relative z-10">
             {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Random'].map(day => {
               const progsToday = ctx.programs.filter((p: any) => p.day === day);
@@ -754,7 +747,8 @@ const ViewDashboard = ({ ctx }: any) => {
                         <div className="mt-2 pt-4 border-t border-slate-100">
                           <div className="flex justify-between items-center relative">
                             <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-100 -z-0 -translate-y-1/2 rounded-full"></div>
-                            <div className="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-blue-400 to-emerald-400 -z-0 -translate-y-1/2 rounded-full transition-all duration-1000" style={{ width: `${((statusInfo.step-1) / 3) * 100}%` }}></div>
+                            {/* FIX: Stepper bar menggunakan solid color bg-blue-500 untuk kepastian render di CDN */}
+                            <div className="absolute top-1/2 left-0 h-1 bg-blue-500 -z-0 -translate-y-1/2 rounded-full transition-all duration-1000" style={{ width: `${((statusInfo.step-1) / 3) * 100}%` }}></div>
                             
                             {[1, 2, 3, 4].map(step => (
                               <div key={step} className={`w-4 h-4 rounded-full relative z-10 border-2 transition-colors ${statusInfo.step >= step ? 'bg-emerald-500 border-emerald-100 shadow-sm' : 'bg-slate-200 border-white'}`}></div>
@@ -888,7 +882,8 @@ const ViewNewProposal = ({ ctx }: any) => {
               <p className="text-3xl font-black text-blue-900">{formatCurrency(totalProp)}</p>
             </div>
           </div>
-          <button type="submit" className="w-full bg-gradient-to-r from-blue-800 to-blue-900 hover:shadow-lg hover:-translate-y-0.5 transition-all text-white font-black text-lg py-5 rounded-2xl shadow-md">Kirim Pengajuan Proposal</button>
+          {/* FIX: Mengganti bg-gradient dengan bg-blue-800 warna solid yang stabil */}
+          <button type="submit" className="w-full bg-blue-800 hover:bg-blue-900 transition-all text-white font-black text-lg py-5 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5">Kirim Pengajuan Proposal</button>
         </form>
       </div>
     </div>
@@ -907,7 +902,6 @@ const ViewReporting = ({ ctx }: any) => {
     setReportData({ ...reportData, actual_cost: calculateTotalBudget(evt.budget_items), attended: evt.participants?.length || 0 }); 
   };
 
-  // FIX: Mengonversi file menjadi string data URI Base64 untuk penyimpanan Firestore
   const handleFile = (e: any, type: string) => { 
     const file = e.target.files[0];
     if (file) {
@@ -915,7 +909,7 @@ const ViewReporting = ({ ctx }: any) => {
       reader.onloadend = () => {
         setReportData(prev => ({
           ...prev, 
-          files: { ...prev.files, [type]: { name: file.name, type: file.type, data: reader.result } } // 'data: reader.result' berisi string URI data Base64
+          files: { ...prev.files, [type]: { name: file.name, type: file.type, data: reader.result } } 
         }));
       };
       reader.readAsDataURL(file);
@@ -950,7 +944,8 @@ const ViewReporting = ({ ctx }: any) => {
         eventsToReport.map((evt: any) => (
           reportingId === evt.id ? (
             <div key={evt.id} className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-400 to-red-500"></div>
+              {/* FIX: Perubahan gradien pada border atas dengan warna solid orange */}
+              <div className="absolute top-0 left-0 w-full h-2 bg-orange-500"></div>
               <h3 className="text-2xl font-black mb-8 text-slate-800 flex items-center"><FileText className="mr-3 text-red-500"/> Form Pelaporan: {evt.sport_type}</h3>
               <div className="space-y-8">
                 
@@ -996,7 +991,8 @@ const ViewReporting = ({ ctx }: any) => {
                 </div>
 
                 {/* Upload Bukti */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
+                {/* FIX: Menghapus gradien untuk menghindari box jadi putih */}
+                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                   <p className="font-black text-blue-900 mb-5 flex items-center"><Paperclip className="w-5 h-5 mr-2"/> Unggah Dokumen Bukti</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-white p-4 rounded-xl shadow-sm">
@@ -1036,7 +1032,8 @@ const ViewReporting = ({ ctx }: any) => {
                   <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{new Date(evt.event_date).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
                 </div>
               </div>
-              <button onClick={() => openForm(evt)} className="w-full bg-gradient-to-r from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 text-white py-3.5 rounded-xl text-sm font-black shadow-md flex items-center justify-center transition-all hover:shadow-lg hover:-translate-y-0.5">
+              {/* FIX: Mengganti bg-gradient untuk stabilitas pembacaan teks pada tombol Mulai Laporan */}
+              <button onClick={() => openForm(evt)} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3.5 rounded-xl text-sm font-black shadow-md flex items-center justify-center transition-all hover:shadow-lg hover:-translate-y-0.5">
                 <Upload className="w-5 h-5 mr-2" /> Mulai Buat Laporan
               </button>
             </div>
@@ -1068,7 +1065,7 @@ const AdminSettlementCard = ({ evt, ctx }: any) => {
 
   return (
     <div className="bg-white border-2 border-purple-100 hover:border-purple-300 shadow-sm hover:shadow-lg transition-all p-6 rounded-3xl relative overflow-hidden">
-      <div className="absolute top-0 right-0 bg-gradient-to-bl from-purple-500 to-purple-600 text-white text-[10px] font-black px-4 py-1.5 rounded-bl-xl tracking-wider shadow-sm">Review Dokumen</div>
+      <div className="absolute top-0 right-0 bg-purple-600 text-white text-[10px] font-black px-4 py-1.5 rounded-bl-xl tracking-wider shadow-sm">Review Dokumen</div>
       <div className="flex justify-between items-start mb-6">
         <div>
           <h3 className="font-black text-xl text-slate-800 mt-2">{evt.sport_type}</h3>
@@ -1609,7 +1606,8 @@ const ViewMasterData = ({ ctx }: any) => {
                     </tr>
                   )
                 })}
-                <tr className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                {/* FIX: Mengganti bg-gradient yang putih menjadi warna solid biru terang */}
+                <tr className="bg-blue-50">
                   <td colSpan="5" className="p-4 font-black text-right text-blue-900 uppercase tracking-wider text-xs">Grand Total Plafon / Bulan</td>
                   <td className="p-4 font-black text-xl text-blue-900 text-right">
                     {formatCurrency(ctx.programs.reduce((acc: any, p: any) => acc + calculateProgramTotal(p), 0))}
@@ -1858,7 +1856,6 @@ export default function App() {
 
       {/* Global Modals */}
       <EventDetailModal event={detailModalEvent} onClose={() => setDetailModalEvent(null)} ctx={ctx} />
-      {/* FIX: Memperbarui penanganan unduhan file nyata agar andal */}
       <FilePreviewModal fileObj={previewFile} onClose={() => setPreviewFile(null)} />
 
       {/* Global Toast */}

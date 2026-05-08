@@ -14,7 +14,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// Tailwind CSS Injection untuk env runtime
+// Tailwind CSS Injection
 if (typeof window !== 'undefined' && !document.getElementById('tailwind-cdn')) {
   const script = document.createElement('script');
   script.id = 'tailwind-cdn';
@@ -42,8 +42,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// FIX: Ambil ID utama saja sebelum karakter '/' agar tidak memecah path 
-// dan tetap diizinkan oleh Security Rules Firebase
 const rawAppId = typeof __app_id !== 'undefined' ? String(__app_id) : 'meratus-happiness-app';
 const appId = rawAppId.split('/')[0];
 
@@ -121,39 +119,56 @@ const getStatusDisplay = (status: any) => {
 
 // --- REUSABLE COMPONENTS ---
 
-const FilePreviewModal = ({ file, onClose }: any) => {
-  if (!file) return null;
-  const ext = file.split('.').pop().toLowerCase();
-  const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(ext);
+const FilePreviewModal = ({ fileObj, onClose }: any) => {
+  if (!fileObj) return null;
+  
+  const isLegacyString = typeof fileObj === 'string';
+  const fileName = isLegacyString ? fileObj : fileObj.name;
+  const ext = fileName.split('.').pop().toLowerCase();
+  const isImage = isLegacyString ? ['jpg', 'jpeg', 'png', 'gif'].includes(ext) : fileObj.type?.startsWith('image/');
+  const isPdf = isLegacyString ? ext === 'pdf' : fileObj.type === 'application/pdf';
+  const fileData = isLegacyString ? null : fileObj.data;
 
   const handleDownload = () => {
-    const content = `--- MERATUS HAPPINESS DOCUMENT ---\nNama Dokumen: ${file}\n\n(Dokumen simulasi di-generate sistem.)`;
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = file;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    if (!isLegacyString && fileData) {
+      const link = document.createElement('a');
+      link.href = fileData;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      const content = `--- MERATUS HAPPINESS DOCUMENT ---\nNama Dokumen: ${fileName}\n\n(Dokumen simulasi di-generate sistem karena data adalah mock/legacy.)`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex justify-center items-center p-4 md:p-10 animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-full max-h-[85vh] flex flex-col overflow-hidden transform transition-all scale-in-95">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
-          <h3 className="font-bold text-slate-800 flex items-center"><Paperclip className="w-5 h-5 mr-2 text-blue-600"/> Pratinjau Dokumen: <span className="ml-1 text-blue-800">{file}</span></h3>
+          <h3 className="font-bold text-slate-800 flex items-center"><Paperclip className="w-5 h-5 mr-2 text-blue-600"/> Pratinjau Dokumen: <span className="ml-1 text-blue-800">{fileName}</span></h3>
           <button onClick={onClose} className="p-2 bg-slate-200 hover:bg-red-100 hover:text-red-600 rounded-full transition-colors"><XCircle className="w-5 h-5" /></button>
         </div>
         <div className="flex-grow bg-slate-200 flex justify-center items-center p-6 overflow-hidden relative">
           {isImage ? (
-            <img src={`https://placehold.co/800x600/e2e8f0/475569?text=Preview+Foto+${encodeURIComponent(file)}`} alt="preview" className="max-w-full max-h-full rounded-xl shadow-md object-contain" />
+            <img src={fileData || `https://placehold.co/800x600/e2e8f0/475569?text=Preview+Foto+${encodeURIComponent(fileName)}`} alt="preview" className="max-w-full max-h-full rounded-xl shadow-md object-contain" />
+          ) : isPdf && fileData ? (
+            <iframe src={fileData} className="w-full h-full rounded-xl shadow-md border-0 bg-white" title="PDF Preview"></iframe>
           ) : (
             <div className="bg-white p-12 rounded-3xl shadow-lg flex flex-col items-center max-w-md w-full text-center border border-slate-100">
               <div className="bg-red-50 p-6 rounded-full mb-6"><FileText className="w-20 h-20 text-red-500"/></div>
-              <p className="text-xl font-black text-slate-800 mb-2">Pratinjau Dokumen PDF/Doc</p>
-              <p className="text-slate-500 font-medium text-sm border-t pt-4 w-full truncate px-4">{file}</p>
+              <p className="text-xl font-black text-slate-800 mb-2">Pratinjau Dokumen {ext.toUpperCase()}</p>
+              <p className="text-slate-500 font-medium text-sm border-t pt-4 w-full truncate px-4">{fileName}</p>
+              {!fileData && <p className="text-xs text-orange-500 mt-2 font-bold">(Pratinjau mock data tidak tersedia)</p>}
             </div>
           )}
         </div>
@@ -270,15 +285,17 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
                     <p className="text-xs font-bold text-blue-900 uppercase mb-4 tracking-wider">Lampiran Dokumen</p>
                     <ul className="space-y-3 text-sm text-blue-700 font-medium">
                       {['nota', 'absensi', 'foto'].map(fileKey => {
-                        const fileName = event.report.files?.[fileKey];
-                        if (!fileName) return null;
+                        const fileObj = event.report.files?.[fileKey];
+                        if (!fileObj) return null;
+                        const displayLabel = typeof fileObj === 'string' ? fileObj : fileObj.name;
+                        
                         return (
                           <li key={fileKey} className="flex items-center justify-between bg-white p-3 rounded-xl border border-blue-100 shadow-sm">
                             <span className="flex items-center truncate mr-3">
                               <Paperclip className="w-4 h-4 mr-2 text-blue-400 flex-shrink-0"/> 
-                              <span className="truncate">{fileName}</span>
+                              <span className="truncate">{displayLabel}</span>
                             </span>
-                            <button onClick={() => ctx.openPreview(fileName)} className="flex items-center text-[10px] font-black bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0 shadow-sm">
+                            <button onClick={() => ctx.openPreview(fileObj)} className="flex items-center text-[10px] font-black bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0 shadow-sm">
                               <Eye className="w-3 h-3 mr-1"/> Lihat
                             </button>
                           </li>
@@ -366,7 +383,7 @@ const LoginScreen = ({ ctx }: any) => {
   );
 };
 
-// 1. Dashboard (With Advanced Filter & Dynamic Realization Metrics)
+// 1. Dashboard
 const ViewDashboard = ({ ctx }: any) => {
   const isPIC = ctx.user.role === ROLES.PIC;
   
@@ -389,7 +406,6 @@ const ViewDashboard = ({ ctx }: any) => {
 
   const roleFilteredEvents = ctx.events.filter((e: any) => isPIC ? e.pic_id === ctx.user.id : true);
   
-  // Semua event sesuai filter waktu (Digunakan untuk Feed dan perhitungan umum)
   const currentPeriodEvents = roleFilteredEvents.filter((e: any) => {
     const d = new Date(e.event_date);
     const y = d.getFullYear().toString();
@@ -420,7 +436,6 @@ const ViewDashboard = ({ ctx }: any) => {
   
   const totalCompletedEvents = currentPeriodEvents.filter((e: any) => e.status === 'completed').length;
   
-  // Realisasi Budget HANYA menghitung yang sudah COMPLETED/DIVALIDASI admin
   const totalBudgetSpent = currentPeriodEvents.filter((e: any) => e.status === 'completed')
     .reduce((acc: any, curr: any) => acc + (curr.report?.actual_cost || 0), 0);
   
@@ -438,7 +453,6 @@ const ViewDashboard = ({ ctx }: any) => {
     else periods = [{ label: filterYear, check: () => true }];
 
     return periods.map(p => {
-      // HANYA MENGGUNAKAN DATA COMPLETED AGAR GRAFIK TERPENGARUH VALIDASI
       const evtsInYear = roleFilteredEvents.filter((e: any) => {
         const d = new Date(e.event_date);
         return d.getFullYear().toString() === filterYear && 
@@ -471,7 +485,6 @@ const ViewDashboard = ({ ctx }: any) => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500">
       
-      {/* SMART REMINDER BANNER FOR PIC */}
       {isPIC && myProgram && (
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
           <div className="absolute right-0 top-0 opacity-10 transform translate-x-8 -translate-y-8 pointer-events-none"><BellRing className="w-48 h-48" /></div>
@@ -486,7 +499,6 @@ const ViewDashboard = ({ ctx }: any) => {
         </div>
       )}
 
-      {/* MASTER CALENDAR BANNER FOR ADMIN */}
       {!isPIC && (
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
           <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none transform translate-x-4 translate-y-4"><CalendarDays className="w-48 h-48" /></div>
@@ -509,7 +521,6 @@ const ViewDashboard = ({ ctx }: any) => {
         </div>
       )}
 
-      {/* FILTER ANALISIS TERPADU */}
       <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 relative z-20 mt-8">
         <div className="flex items-center text-blue-900 font-black whitespace-nowrap bg-blue-50 px-4 py-2.5 rounded-xl border border-blue-100">
           <ListFilter className="w-5 h-5 mr-2"/> Filter Dasbor:
@@ -542,7 +553,6 @@ const ViewDashboard = ({ ctx }: any) => {
         </div>
       </div>
       
-      {/* TOP CARDS */}
       <div className={`grid grid-cols-1 md:grid-cols-2 ${!isPIC ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
           <div className="absolute -right-6 -top-6 bg-blue-50 w-24 h-24 rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
@@ -560,7 +570,6 @@ const ViewDashboard = ({ ctx }: any) => {
           <p className="text-2xl font-black text-emerald-600 mt-2 relative z-10">{formatCurrency(totalBudgetSpent)}</p>
         </div>
         
-        {/* Rating Card Only For Admin */}
         {!isPIC && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
             <div className="absolute -right-6 -top-6 bg-yellow-50 w-24 h-24 rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
@@ -580,12 +589,10 @@ const ViewDashboard = ({ ctx }: any) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Growth Analytics (FULL WIDTH untuk Admin & PIC) */}
         <div className="lg:col-span-3 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col space-y-6">
           <h3 className="text-lg font-black text-slate-800 flex items-center"><TrendingUp className="w-5 h-5 mr-2 text-indigo-600" /> Analitik Tren Pertumbuhan Data Tervalidasi ({filterYear})</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
-            {/* Grafik 1: Pertumbuhan Event */}
             <div className="flex flex-col bg-slate-50 p-4 rounded-2xl border border-slate-100">
               <p className="text-xs font-black text-slate-500 mb-6 text-center uppercase tracking-wide">Tren Kegiatan Selesai</p>
               <div className="flex-grow w-full overflow-x-auto custom-scrollbar pb-2">
@@ -602,7 +609,6 @@ const ViewDashboard = ({ ctx }: any) => {
               </div>
             </div>
 
-            {/* Grafik 2: Pertumbuhan Peserta */}
             <div className="flex flex-col bg-slate-50 p-4 rounded-2xl border border-slate-100">
               <p className="text-xs font-black text-slate-500 mb-6 text-center uppercase tracking-wide">Tren Kehadiran Peserta</p>
               <div className="flex-grow w-full overflow-x-auto custom-scrollbar pb-2">
@@ -619,7 +625,6 @@ const ViewDashboard = ({ ctx }: any) => {
               </div>
             </div>
 
-            {/* Grafik 3: Tren Realisasi Anggaran */}
             <div className="flex flex-col bg-slate-50 p-4 rounded-2xl border border-slate-100">
               <p className="text-xs font-black text-slate-500 mb-6 text-center uppercase tracking-wide">Tren Realisasi Anggaran</p>
               <div className="flex-grow w-full overflow-x-auto custom-scrollbar pb-2">
@@ -638,12 +643,10 @@ const ViewDashboard = ({ ctx }: any) => {
           </div>
         </div>
 
-        {/* Progress Bar Serapan Anggaran */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm lg:col-span-2">
           <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center"><BarChart3 className="w-5 h-5 mr-2 text-blue-600" /> Analisis Serapan Anggaran Program</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {programsToMonitor.map((prog: any) => {
-              // HANYA hitung dari status Completed
               const progEvents = currentPeriodEvents.filter((e: any) => e.sport_type.includes(prog.sport) && e.status === 'completed');
               const spent = progEvents.reduce((sum: any, e: any) => sum + (e.report?.actual_cost || 0), 0);
               const plafon = calculateProgramTotal(prog) * multiplier;
@@ -670,7 +673,6 @@ const ViewDashboard = ({ ctx }: any) => {
           </div>
         </div>
 
-        {/* Live Feed Event Terfilter */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-full lg:col-span-1 max-h-[600px]">
           <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center"><Activity className="w-5 h-5 mr-2 text-red-600" /> 
             {isPIC ? 'Status Pengajuan Periode Ini' : 'Daftar Kegiatan Berjalan'}
@@ -697,7 +699,6 @@ const ViewDashboard = ({ ctx }: any) => {
                         <p className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 whitespace-nowrap">{formatCurrency(evt.report?.actual_cost || calculateTotalBudget(evt.budget_items))}</p>
                       </div>
                       
-                      {/* Visual Stepper Khusus PIC */}
                       {isPIC && (
                         <div className="mt-2 pt-4 border-t border-slate-100">
                           <div className="flex justify-between items-center relative">
@@ -712,7 +713,6 @@ const ViewDashboard = ({ ctx }: any) => {
                         </div>
                       )}
 
-                      {/* Tampilan Standar Untuk Admin */}
                       {!isPIC && (
                         <div className="text-right mt-2 border-t border-slate-100 pt-3 flex justify-between items-center">
                           <span className="text-[10px] font-bold text-slate-400"><Users className="w-3 h-3 inline mr-1"/>{evt.report?.attended || evt.participants?.length || 0} Pax</span>
@@ -731,13 +731,12 @@ const ViewDashboard = ({ ctx }: any) => {
   );
 };
 
-// 2. Form Pengajuan (Dengan Validasi Minimal 7 Peserta)
+// 2. Form Pengajuan
 const ViewNewProposal = ({ ctx }: any) => {
   const defaultSport = ctx.user.sport || '';
   const defaultProgram = ctx.programs.find((p: any) => p.sport === defaultSport) || {};
   const [formData, setFormData] = useState<any>({ sport: defaultSport, date: '', venue: '', objective: '' });
   
-  // Inisialisasi awal dengan 7 baris kosong
   const initialParticipants = Array(7).fill(null).map(() => ({ id: generateId(), name: '', dept: '' }));
   const [participants, setParticipants] = useState<any[]>(initialParticipants);
   
@@ -846,7 +845,7 @@ const ViewNewProposal = ({ ctx }: any) => {
 // 3. Form Pelaporan
 const ViewReporting = ({ ctx }: any) => {
   const [reportingId, setReportingId] = useState(null);
-  const [reportData, setReportData] = useState<any>({ actual_cost: '', attended: 0, notes: '', rating: 5, files: { nota: '', absensi: '', foto: '' } });
+  const [reportData, setReportData] = useState<any>({ actual_cost: '', attended: 0, notes: '', rating: 5, files: { nota: null, absensi: null, foto: null } });
 
   const eventsToReport = ctx.events.filter((e: any) => e.pic_id === ctx.user.id && e.status === 'funded');
 
@@ -855,7 +854,20 @@ const ViewReporting = ({ ctx }: any) => {
     setReportData({ ...reportData, actual_cost: calculateTotalBudget(evt.budget_items), attended: evt.participants?.length || 0 }); 
   };
 
-  const handleFile = (e: any, type: string) => { if(e.target.files[0]) setReportData({...reportData, files: {...reportData.files, [type]: e.target.files[0].name}}) };
+  // Convert File to Base64 
+  const handleFile = (e: any, type: string) => { 
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReportData(prev => ({
+          ...prev, 
+          files: { ...prev.files, [type]: { name: file.name, type: file.type, data: reader.result } }
+        }));
+      };
+      reader.readAsDataURL(file);
+    } 
+  };
 
   const handleSubmitReport = async (id: string) => {
     if(!reportData.files.nota || !reportData.files.foto) return ctx.showToast('Silakan unggah Nota dan Foto Dokumentasi untuk melanjutkan.', 'error');
@@ -889,7 +901,6 @@ const ViewReporting = ({ ctx }: any) => {
               <h3 className="text-2xl font-black mb-8 text-slate-800 flex items-center"><FileText className="mr-3 text-red-500"/> Form Pelaporan: {evt.sport_type}</h3>
               <div className="space-y-8">
                 
-                {/* Realisasi vs Proposed */}
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-6 items-center justify-between">
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Anggaran Disetujui (Proposal)</p>
@@ -904,7 +915,6 @@ const ViewReporting = ({ ctx }: any) => {
                   </div>
                 </div>
 
-                {/* Kehadiran & Evaluasi */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="border-2 border-slate-100 p-6 rounded-2xl bg-white flex flex-col justify-center">
                     <p className="font-black text-slate-800 mb-4">Jumlah Kehadiran Aktual</p>
@@ -930,13 +940,24 @@ const ViewReporting = ({ ctx }: any) => {
                   </div>
                 </div>
 
-                {/* Upload Bukti */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
                   <p className="font-black text-blue-900 mb-5 flex items-center"><Paperclip className="w-5 h-5 mr-2"/> Unggah Dokumen Bukti</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white p-4 rounded-xl shadow-sm"><label className="block text-xs font-bold text-slate-600 mb-2">1. Nota / Invoice (Wajib)</label><input type="file" onChange={(e) => handleFile(e, 'nota')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" /></div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm"><label className="block text-xs font-bold text-slate-600 mb-2">2. Foto Kegiatan (Wajib)</label><input type="file" onChange={(e) => handleFile(e, 'foto')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" /></div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm"><label className="block text-xs font-bold text-slate-600 mb-2">3. Daftar Hadir (Opsional)</label><input type="file" onChange={(e) => handleFile(e, 'absensi')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" /></div>
+                    <div className="bg-white p-4 rounded-xl shadow-sm">
+                      <label className="block text-xs font-bold text-slate-600 mb-2">1. Nota / Invoice (Wajib)</label>
+                      <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'nota')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                      {reportData.files.nota && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">File: {reportData.files.nota.name}</p>}
+                    </div>
+                    <div className="bg-white p-4 rounded-xl shadow-sm">
+                      <label className="block text-xs font-bold text-slate-600 mb-2">2. Foto Kegiatan (Wajib)</label>
+                      <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'foto')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                      {reportData.files.foto && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">File: {reportData.files.foto.name}</p>}
+                    </div>
+                    <div className="bg-white p-4 rounded-xl shadow-sm">
+                      <label className="block text-xs font-bold text-slate-600 mb-2">3. Daftar Hadir (Opsional)</label>
+                      <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'absensi')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                      {reportData.files.absensi && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">File: {reportData.files.absensi.name}</p>}
+                    </div>
                   </div>
                 </div>
 
@@ -970,7 +991,6 @@ const ViewReporting = ({ ctx }: any) => {
   );
 };
 
-// Sub-Component untuk Admin Settlement Card yang memiliki local state edit 
 const AdminSettlementCard = ({ evt, ctx }: any) => {
   const proposed = calculateTotalBudget(evt.budget_items);
   const [editCost, setEditCost] = useState(evt.report?.actual_cost || 0);
@@ -1024,12 +1044,13 @@ const AdminSettlementCard = ({ evt, ctx }: any) => {
         <p className="text-xs font-black mb-3 text-blue-900 tracking-wide uppercase">File Lampiran PIC:</p>
         <ul className="space-y-2">
           {['nota', 'absensi', 'foto'].map(fileKey => {
-            const fileName = evt.report?.files?.[fileKey];
-            if(!fileName) return null;
+            const fileObj = evt.report?.files?.[fileKey];
+            if(!fileObj) return null;
+            const displayLabel = typeof fileObj === 'string' ? fileObj : fileObj.name;
             return (
               <li key={fileKey} className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-blue-100 shadow-sm">
-                <span className="flex items-center truncate mr-2"><Paperclip className="w-4 h-4 mr-2 text-blue-400 flex-shrink-0"/> <span className="truncate text-xs font-bold text-slate-600">{fileName}</span></span>
-                <button onClick={() => ctx.openPreview(fileName)} className="text-[10px] font-black bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition-colors flex-shrink-0 flex items-center shadow-sm"><Eye className="w-3 h-3 mr-1"/> Lihat</button>
+                <span className="flex items-center truncate mr-2"><Paperclip className="w-4 h-4 mr-2 text-blue-400 flex-shrink-0"/> <span className="truncate text-xs font-bold text-slate-600">{displayLabel}</span></span>
+                <button onClick={() => ctx.openPreview(fileObj)} className="text-[10px] font-black bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition-colors flex-shrink-0 flex items-center shadow-sm"><Eye className="w-3 h-3 mr-1"/> Lihat</button>
               </li>
             )
           })}
@@ -1117,10 +1138,13 @@ const ViewAdminApprovals = ({ ctx }: any) => {
   );
 };
 
-// 5. Database dengan Search & Filter Bulan
+// 5. Database dengan Search & Filter Bulan + Add/Delete Manual Arsip
 const ViewDatabase = ({ ctx }: any) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMonth, setFilterMonth] = useState(''); 
+  const [showAddModal, setShowAddModal] = useState(false);
+  
+  const [newArchive, setNewArchive] = useState({ sport_type: '', event_date: '', venue_name: '', attended: 0, actual_cost: 0 });
   
   let displayEvents = ctx.events
     .filter((e: any) => e.status === 'completed' && (ctx.user.role === ROLES.ADMIN || e.pic_id === ctx.user.id))
@@ -1137,6 +1161,37 @@ const ViewDatabase = ({ ctx }: any) => {
     );
   }
 
+  const handleDeleteEvent = async (id: string) => {
+    if(window.confirm('Yakin ingin menghapus arsip data ini secara permanen? Hal ini akan memengaruhi metrik dasbor.')) {
+      await ctx.deleteEvent(id);
+      ctx.showToast('Arsip berhasil dihapus.', 'success');
+    }
+  };
+
+  const handleAddArchive = async (e: any) => {
+    e.preventDefault();
+    const archiveEvent = {
+        id: generateId(),
+        pic_id: ctx.user.id,
+        sport_type: newArchive.sport_type,
+        event_date: new Date(newArchive.event_date).toISOString(),
+        venue_name: newArchive.venue_name,
+        status: 'completed',
+        report: {
+            attended: Number(newArchive.attended),
+            actual_cost: Number(newArchive.actual_cost),
+            rating: 5,
+            notes: 'Arsip histori ditambahkan secara manual.',
+            files: {}
+        },
+        budget_items: [{ desc: 'Realisasi Arsip', qty: 1, unit: 'Lumpsum', price: Number(newArchive.actual_cost) }]
+    };
+    await ctx.addEvent(archiveEvent);
+    setShowAddModal(false);
+    setNewArchive({ sport_type: '', event_date: '', venue_name: '', attended: 0, actual_cost: 0 });
+    ctx.showToast('Data arsip manual berhasil ditambahkan.', 'success');
+  };
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -1151,8 +1206,45 @@ const ViewDatabase = ({ ctx }: any) => {
             <Filter className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
             <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="pl-9 pr-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white" />
           </div>
+          <button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center transition-colors shadow-sm whitespace-nowrap">
+            <Plus className="w-4 h-4 mr-2" /> Tambah Arsip
+          </button>
         </div>
       </div>
+
+      {showAddModal && (
+        <div className="bg-white p-6 rounded-3xl border border-blue-200 shadow-md mb-6 animate-in fade-in slide-in-from-top-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-black text-slate-800">Tambah Arsip Histori Manual</h3>
+            <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-red-500"><XCircle /></button>
+          </div>
+          <form onSubmit={handleAddArchive} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Cabor / Program</label>
+              <input type="text" required placeholder="Cth: Tenis Meja" className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500" value={newArchive.sport_type} onChange={e => setNewArchive({...newArchive, sport_type: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Tanggal</label>
+              <input type="datetime-local" required className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500" value={newArchive.event_date} onChange={e => setNewArchive({...newArchive, event_date: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Venue</label>
+              <input type="text" required placeholder="Cth: DDB Arena" className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500" value={newArchive.venue_name} onChange={e => setNewArchive({...newArchive, venue_name: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Peserta</label>
+                <input type="number" required placeholder="Jml" className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500" value={newArchive.attended} onChange={e => setNewArchive({...newArchive, attended: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Total Biaya</label>
+                <input type="number" required placeholder="Rp" className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500" value={newArchive.actual_cost} onChange={e => setNewArchive({...newArchive, actual_cost: e.target.value})} />
+              </div>
+            </div>
+            <button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white font-black py-2.5 rounded-lg shadow-sm transition-colors">Simpan Arsip</button>
+          </form>
+        </div>
+      )}
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -1171,7 +1263,7 @@ const ViewDatabase = ({ ctx }: any) => {
                 <tr><td colSpan="5" className="p-10 text-center text-slate-400 font-bold">Tidak ada rekaman data yang ditemukan.</td></tr>
               )}
               {displayEvents.map((evt: any) => {
-                const picName = ctx.accounts.find((a: any) => a.id === evt.pic_id)?.name || 'Unknown';
+                const picName = ctx.accounts.find((a: any) => a.id === evt.pic_id)?.name || 'Manual Admin';
                 const actualCost = evt.report?.actual_cost || calculateTotalBudget(evt.budget_items || []);
                 return (
                   <tr key={evt.id} className="hover:bg-blue-50/40 transition-colors group">
@@ -1184,9 +1276,12 @@ const ViewDatabase = ({ ctx }: any) => {
                       <span className="bg-slate-100 text-slate-700 font-black text-xs px-3 py-1.5 rounded-lg border border-slate-200 group-hover:bg-white transition-colors">{evt.report?.attended || 0} Orang</span>
                     </td>
                     <td className="p-5 font-black text-emerald-600 text-lg text-right">{formatCurrency(actualCost)}</td>
-                    <td className="p-5 text-center">
+                    <td className="p-5 text-center whitespace-nowrap">
                       <button onClick={() => ctx.openModal(evt)} className="text-blue-700 hover:text-white bg-blue-50 hover:bg-blue-600 px-4 py-2 rounded-xl text-xs font-black inline-flex items-center transition-all shadow-sm">
-                        <Eye className="w-4 h-4 mr-2" /> Lihat Detail
+                        <Eye className="w-4 h-4 mr-2" /> Detail
+                      </button>
+                      <button onClick={() => handleDeleteEvent(evt.id)} className="text-red-600 hover:text-white bg-red-50 hover:bg-red-500 px-4 py-2 rounded-xl text-xs font-black inline-flex items-center transition-all shadow-sm ml-2">
+                        <Trash2 className="w-4 h-4 mr-2" /> Hapus
                       </button>
                     </td>
                   </tr>
@@ -1200,7 +1295,7 @@ const ViewDatabase = ({ ctx }: any) => {
   );
 };
 
-// 6. Master Data & Pengaturan Jadwal
+// 6. Master Data & Pengaturan Jadwal (+ Delete Program)
 const ViewMasterData = ({ ctx }: any) => {
   const [tab, setTab] = useState('pic');
   const [newAcc, setNewAcc] = useState<any>({ 
@@ -1250,6 +1345,17 @@ const ViewMasterData = ({ ctx }: any) => {
         ctx.showToast('Akun berhasil dihapus.', 'success');
       } catch (error) {
         ctx.showToast('Gagal menghapus data.', 'error');
+      }
+    }
+  };
+
+  const handleDeleteProgram = async (id: string) => {
+    if(window.confirm('PERINGATAN: Yakin ingin menghapus master jadwal & anggaran ini secara permanen? Hal ini akan memengaruhi metrik target.')) {
+      try {
+        await ctx.deleteProgram(id);
+        ctx.showToast('Jadwal program dan limit anggaran dihapus.', 'success');
+      } catch (error) {
+        ctx.showToast('Gagal menghapus data program.', 'error');
       }
     }
   };
@@ -1398,7 +1504,7 @@ const ViewMasterData = ({ ctx }: any) => {
                   <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider">Biaya /Sesi</th>
                   <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider">Biaya Admin</th>
                   <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider text-right">Total Plafon</th>
-                  <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider text-center">Edit</th>
+                  <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1433,11 +1539,14 @@ const ViewMasterData = ({ ctx }: any) => {
                       <td className="p-4 font-black text-emerald-700 text-right">
                         {formatCurrency(isEditing ? calculateProgramTotal(editProgData) : calculateProgramTotal(prog))}
                       </td>
-                      <td className="p-4 text-center">
+                      <td className="p-4 text-center whitespace-nowrap">
                         {isEditing ? (
                           <button onClick={saveProg} className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors shadow-sm"><Save size={16}/></button>
                         ) : (
-                          <button onClick={() => startEditProg(prog)} className="p-2 text-indigo-500 bg-indigo-50 hover:bg-indigo-500 hover:text-white rounded-lg transition-colors"><Edit3 size={16}/></button>
+                          <>
+                            <button onClick={() => startEditProg(prog)} className="p-2 text-indigo-500 bg-indigo-50 hover:bg-indigo-500 hover:text-white rounded-lg transition-colors"><Edit3 size={16}/></button>
+                            <button onClick={() => handleDeleteProgram(prog.id)} className="p-2 text-red-500 bg-red-50 hover:bg-red-500 hover:text-white rounded-lg transition-colors ml-2"><Trash2 size={16}/></button>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -1479,7 +1588,7 @@ export default function App() {
     setTimeout(() => setToast({ show: false, msg: '', type: 'success' }), 3500);
   };
 
-  const openPreview = (fileName: string) => setPreviewFile(fileName);
+  const openPreview = (fileObj: any) => setPreviewFile(fileObj);
   const openModal = (evt: any) => setDetailModalEvent(evt);
 
   // 1. FIREBASE: Auth Initialization
@@ -1572,6 +1681,10 @@ export default function App() {
     setEvents(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
     try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'events', id), updates); } catch(e) {}
   };
+  const deleteEvent = async (id: string) => {
+    setEvents(prev => prev.filter(e => e.id !== id));
+    try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'events', id)); } catch(e) {}
+  };
   
   const addAccount = async (newAcc: any) => {
     setAccounts(prev => [...prev, newAcc]);
@@ -1590,11 +1703,17 @@ export default function App() {
     setPrograms(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
     try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'programs', id), updates); } catch(e) {}
   };
+  const deleteProgram = async (id: string) => {
+    setPrograms(prev => prev.filter(p => p.id !== id));
+    try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'programs', id)); } catch(e) {}
+  };
 
   const ctx = { 
-    user, setUser, events, addEvent, updateEvent, 
-    view, setView, accounts, addAccount, deleteAccount, 
-    programs, addProgram, updateProgram, 
+    user, setUser, 
+    events, addEvent, updateEvent, deleteEvent, 
+    view, setView, 
+    accounts, addAccount, deleteAccount, 
+    programs, addProgram, updateProgram, deleteProgram,
     showToast, openPreview, openModal 
   };
 
@@ -1682,7 +1801,7 @@ export default function App() {
 
       {/* Global Modals */}
       <EventDetailModal event={detailModalEvent} onClose={() => setDetailModalEvent(null)} ctx={ctx} />
-      <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
+      <FilePreviewModal fileObj={previewFile} onClose={() => setPreviewFile(null)} />
 
       {/* Global Toast */}
       {toast.show && (

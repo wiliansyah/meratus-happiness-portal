@@ -108,11 +108,44 @@ const INITIAL_EVENTS = [
   }
 ];
 
-// --- HELPER FUNCTIONS ---
+// --- HELPER LOGIC HISTORI ANGGARAN (BUDGET OVERRIDES) ---
+const getActiveProgramRules = (prog: any, yyyy_mm: string) => {
+  if (prog.budget_history && prog.budget_history.length > 0) {
+    // Cari history terbaru yang bulan berlakunya lebih kecil atau sama dengan bulan yg dicari (<= yyyy_mm)
+    const sortedHist = [...prog.budget_history].sort((a, b) => b.effective_month.localeCompare(a.effective_month));
+    const activeHist = sortedHist.find(h => h.effective_month <= yyyy_mm);
+    if (activeHist) return activeHist;
+  }
+  // Fallback untuk data legacy
+  return prog;
+};
+
+const getProgramLimitForMonth = (prog: any, yyyy_mm: string) => {
+  const activeRules = getActiveProgramRules(prog, yyyy_mm);
+  // Kalau ada explicit 'limit' di dalam history, pakai itu, kalau tidak kalkulasi manual
+  if (activeRules.limit !== undefined) return activeRules.limit;
+  return (Number(activeRules.costPerSession || 0) + Number(activeRules.adminFee || 0)) * Number(activeRules.freqNum || 0);
+};
+
+const getTotalPlafonForPeriod = (prog: any, filterType: string, filterValue: string, filterYear: string) => {
+  let monthsToSum = [];
+  if (filterType === 'month' && filterValue !== 'ALL') {
+    monthsToSum.push(`${filterYear}-${filterValue}`);
+  } else if (filterType === 'quarter' && filterValue !== 'ALL') {
+    const q = parseInt(filterValue.replace('Q', ''));
+    monthsToSum = [1, 2, 3].map(m => `${filterYear}-${String((q - 1) * 3 + m).padStart(2, '0')}`);
+  } else if (filterType === 'semester' && filterValue !== 'ALL') {
+    const s = parseInt(filterValue.replace('S', ''));
+    monthsToSum = [1, 2, 3, 4, 5, 6].map(m => `${filterYear}-${String((s - 1) * 6 + m).padStart(2, '0')}`);
+  } else {
+    monthsToSum = Array.from({ length: 12 }, (_, i) => `${filterYear}-${String(i + 1).padStart(2, '0')}`);
+  }
+  return monthsToSum.reduce((sum, ym) => sum + getProgramLimitForMonth(prog, ym), 0);
+};
+
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const formatCurrency = (amount: any) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount || 0);
 const calculateTotalBudget = (items: any) => Array.isArray(items) ? items.reduce((sum, item) => sum + Number(item?.qty || 0) * Number(item?.price || 0), 0) : 0;
-const calculateProgramTotal = (prog: any) => (Number(prog.costPerSession) + Number(prog.adminFee)) * Number(prog.freqNum);
 
 const getStatusDisplay = (status: any) => {
   const map: any = {
@@ -125,7 +158,7 @@ const getStatusDisplay = (status: any) => {
   return map[status] || { label: status, color: 'bg-gray-100 text-gray-800', step: 0 };
 };
 
-const base64ToBlob = (base64Data, contentType) => {
+const base64ToBlob = (base64Data: string, contentType: string) => {
   contentType = contentType || '';
   const sliceSize = 1024;
   const byteCharacters = atob(base64Data);
@@ -184,7 +217,7 @@ const FilePreviewModal = ({ fileObj, onClose }: any) => {
           document.body.removeChild(link);
         }
       } catch (e) {
-        console.error("Gagal memproses unduhan secara native", e);
+        console.error("Gagal memproses unduhan", e);
       }
     } else {
       const content = `--- MERATUS HAPPINESS DOCUMENT ---\nNama Dokumen: ${fileName}\n\n(Dokumen simulasi di-generate sistem karena data adalah mock/legacy.)`;
@@ -497,11 +530,8 @@ const ViewDashboard = ({ ctx }: any) => {
   const totalBudgetSpent = currentPeriodEvents.filter((e: any) => e.status === 'completed')
     .reduce((acc: any, curr: any) => acc + (curr.report?.actual_cost || 0), 0);
   
-  let multiplier = 1;
-  if(filterType === 'quarter' && filterValue !== 'ALL') multiplier = 3;
-  if(filterType === 'semester' && filterValue !== 'ALL') multiplier = 6;
-  if(filterType === 'year' || filterValue === 'ALL') multiplier = 12;
-  const totalAllocated = programsToMonitor.reduce((acc: any, p: any) => acc + calculateProgramTotal(p), 0) * multiplier;
+  // Plafon dihitung secara dinamis via budget_history per bulannya
+  const totalAllocated = programsToMonitor.reduce((acc: any, p: any) => acc + getTotalPlafonForPeriod(p, filterType, filterValue, filterYear), 0);
 
   const generateChartData = () => {
     let periods: any[] = [];
@@ -715,10 +745,11 @@ const ViewDashboard = ({ ctx }: any) => {
           <h3 className="text-lg font-black text-slate-800 mb-6 flex items-center"><BarChart3 className="w-5 h-5 mr-2 text-blue-600" /> Analisis Serapan Anggaran Program</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {programsToMonitor.map((prog: any) => {
-              // HANYA hitung dari status Completed
               const progEvents = currentPeriodEvents.filter((e: any) => e.sport_type.includes(prog.sport) && e.status === 'completed');
               const spent = progEvents.reduce((sum: any, e: any) => sum + (e.report?.actual_cost || 0), 0);
-              const plafon = calculateProgramTotal(prog) * multiplier;
+              
+              // Plafon Dinamis Menggunakan Helper budget_history
+              const plafon = getTotalPlafonForPeriod(prog, filterType, filterValue, filterYear);
               const pct = plafon > 0 ? Math.min((spent / plafon) * 100, 100).toFixed(1) : 0;
               const isOver = spent > plafon;
               
@@ -803,35 +834,31 @@ const ViewDashboard = ({ ctx }: any) => {
   );
 };
 
-// 2. Form Pencatatan Kegiatan (Langsung Status Funded/ACC)
+// 2. Form Pencatatan Kegiatan
 const ViewNewProposal = ({ ctx }: any) => {
+  const currentYm = new Date().toISOString().slice(0, 7);
   const defaultSport = ctx.user.sport || '';
   const defaultProgram = ctx.programs.find((p: any) => p.sport === defaultSport) || {};
+  
+  // Mengambil rule program berdasarkan histori pada bulan saat ini
+  const activeRules = getActiveProgramRules(defaultProgram, currentYm);
+
   const [formData, setFormData] = useState<any>({ sport: defaultSport, date: '', venue: '', objective: '' });
-  
   const [participantCount, setParticipantCount] = useState<number | ''>('');
-  
   const [budgetItems, setBudgetItems] = useState<any[]>([
-    { desc: 'Sewa Lapangan/Vendor', qty: 1, unit: 'Sesi', price: defaultProgram.costPerSession || '' },
-    { desc: 'Biaya Admin', qty: 1, unit: 'Trx', price: defaultProgram.adminFee || '' }
+    { desc: 'Sewa Lapangan/Vendor', qty: 1, unit: 'Sesi', price: activeRules.costPerSession || '' },
+    { desc: 'Biaya Admin', qty: 1, unit: 'Trx', price: activeRules.adminFee || '' }
   ]);
 
   const totalProp = calculateTotalBudget(budgetItems);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    
     const numPax = Number(participantCount);
     
-    if(numPax < 7) {
-      return ctx.showToast(`Pengajuan wajib minimal 7 peserta! Anda baru memasukkan angka ${numPax}.`, 'error');
-    }
+    if(numPax < 7) return ctx.showToast(`Pengajuan wajib minimal 7 peserta! Anda baru memasukkan angka ${numPax}.`, 'error');
     
-    const dummyParticipants = Array(numPax).fill(null).map((_, i) => ({
-      id: generateId(),
-      name: `Peserta Rencana ${i + 1}`,
-      dept: '-'
-    }));
+    const dummyParticipants = Array(numPax).fill(null).map((_, i) => ({ id: generateId(), name: `Peserta Rencana ${i + 1}`, dept: '-' }));
     
     const newEvent = {
       id: generateId(), pic_id: ctx.user.id, sport_type: formData.sport, event_date: new Date(formData.date).toISOString(),
@@ -884,15 +911,7 @@ const ViewNewProposal = ({ ctx }: any) => {
             </div>
             <div className="relative max-w-xs">
               <Users className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-              <input 
-                type="number" 
-                min="7" 
-                required 
-                placeholder="Masukkan jumlah..." 
-                className="w-full pl-12 pr-4 py-3 border-2 border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-blue-500 font-bold" 
-                value={participantCount} 
-                onChange={e => setParticipantCount(e.target.value)} 
-              />
+              <input type="number" min="7" required placeholder="Masukkan jumlah..." className="w-full pl-12 pr-4 py-3 border-2 border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-blue-500 font-bold" value={participantCount} onChange={e => setParticipantCount(e.target.value)} />
             </div>
           </div>
 
@@ -947,7 +966,6 @@ const ViewReporting = ({ ctx }: any) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const fileData = reader.result as string;
-
       if (file.type.startsWith('image/')) {
         const img = new Image();
         img.onload = () => {
@@ -955,53 +973,26 @@ const ViewReporting = ({ ctx }: any) => {
             let width = img.width;
             let height = img.height;
             const MAX_DIMENSION = 800; 
-            
-            if (width > height && width > MAX_DIMENSION) {
-              height = Math.round(height * (MAX_DIMENSION / width));
-              width = MAX_DIMENSION;
-            } else if (height > MAX_DIMENSION) {
-              width = Math.round(width * (MAX_DIMENSION / height));
-              height = MAX_DIMENSION;
-            }
+            if (width > height && width > MAX_DIMENSION) { height = Math.round(height * (MAX_DIMENSION / width)); width = MAX_DIMENSION; }
+            else if (height > MAX_DIMENSION) { width = Math.round(width * (MAX_DIMENSION / height)); height = MAX_DIMENSION; }
 
             const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
+            canvas.width = width; canvas.height = height;
             const canvasCtx = canvas.getContext('2d');
-            
-            if(canvasCtx) {
-              canvasCtx.fillStyle = '#FFFFFF';
-              canvasCtx.fillRect(0, 0, width, height);
-              canvasCtx.drawImage(img, 0, 0, width, height);
-            }
+            if(canvasCtx) { canvasCtx.fillStyle = '#FFFFFF'; canvasCtx.fillRect(0, 0, width, height); canvasCtx.drawImage(img, 0, 0, width, height); }
 
             const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-            
-            setReportData(prev => ({
-              ...prev, 
-              files: { ...prev.files, [type]: { name: file.name, type: 'image/jpeg', data: compressedDataUrl } }
-            }));
-            
+            setReportData(prev => ({ ...prev, files: { ...prev.files, [type]: { name: file.name, type: 'image/jpeg', data: compressedDataUrl } } }));
             ctx.showToast(`Sukses memproses & mengkompresi gambar: ${file.name}`, 'success');
-            
-          } catch(err) {
-            ctx.showToast('Terjadi kesalahan saat memproses gambar.', 'error');
-          }
+          } catch(err) { ctx.showToast('Terjadi kesalahan saat memproses gambar.', 'error'); }
         };
-        img.onerror = () => {
-           ctx.showToast('Gagal memproses gambar. Format mungkin tidak didukung.', 'error');
-        };
+        img.onerror = () => { ctx.showToast('Gagal memproses gambar. Format mungkin tidak didukung.', 'error'); };
         img.src = fileData;
       } else {
-        setReportData(prev => ({
-          ...prev, 
-          files: { ...prev.files, [type]: { name: file.name, type: file.type, data: fileData } } 
-        }));
+        setReportData(prev => ({ ...prev, files: { ...prev.files, [type]: { name: file.name, type: file.type, data: fileData } } }));
       }
     };
-    reader.onerror = () => {
-       ctx.showToast('Gagal membaca file perangkat.', 'error');
-    };
+    reader.onerror = () => { ctx.showToast('Gagal membaca file perangkat.', 'error'); };
     reader.readAsDataURL(file);
   };
 
@@ -1023,9 +1014,7 @@ const ViewReporting = ({ ctx }: any) => {
       <h2 className="text-3xl font-black text-slate-800 mb-8">Tugas Pelaporan (Post-Event)</h2>
       {eventsToReport.length === 0 ? (
         <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center text-slate-500 flex flex-col items-center shadow-sm">
-          <div className="bg-emerald-50 p-6 rounded-full mb-6">
-            <CheckCircle className="w-16 h-16 text-emerald-400" />
-          </div>
+          <div className="bg-emerald-50 p-6 rounded-full mb-6"><CheckCircle className="w-16 h-16 text-emerald-400" /></div>
           <p className="font-black text-2xl text-slate-700">Luar Biasa!</p>
           <p className="font-medium mt-2">Tidak ada laporan yang perlu diselesaikan saat ini.</p>
         </div>
@@ -1036,7 +1025,6 @@ const ViewReporting = ({ ctx }: any) => {
               <div className="absolute top-0 left-0 w-full h-2 bg-orange-500"></div>
               <h3 className="text-2xl font-black mb-8 text-slate-800 flex items-center"><FileText className="mr-3 text-red-500"/> Form Pelaporan: {evt.sport_type}</h3>
               <div className="space-y-8">
-                
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-6 items-center justify-between">
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Rencana Anggaran Awal</p>
@@ -1051,7 +1039,6 @@ const ViewReporting = ({ ctx }: any) => {
                   </div>
                 </div>
 
-                {/* Kehadiran & Evaluasi */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="border-2 border-slate-100 p-6 rounded-2xl bg-white flex flex-col justify-center">
                     <p className="font-black text-slate-800 mb-4">Jumlah Kehadiran Aktual</p>
@@ -1077,7 +1064,6 @@ const ViewReporting = ({ ctx }: any) => {
                   </div>
                 </div>
 
-                {/* Upload Bukti */}
                 <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                   <p className="font-black text-blue-900 mb-5 flex items-center"><Paperclip className="w-5 h-5 mr-2"/> Unggah Dokumen Bukti</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1206,7 +1192,6 @@ const AdminSettlementCard = ({ evt, ctx }: any) => {
 
 // 4. Admin Approvals & Tracking
 const ViewAdminApprovals = ({ ctx }: any) => {
-  // FIX: Gabungkan status 'pending_approval' (utk legacy) dan 'funded' untuk pantauan jadwal berjalan
   const ongoingEvents = ctx.events.filter((e: any) => ['pending_approval', 'funded'].includes(e.status));
   const pendingSettlements = ctx.events.filter((e: any) => e.status === 'pending_settlement');
   const [adminNotes, setAdminNotes] = useState<any>({});
@@ -1224,7 +1209,6 @@ const ViewAdminApprovals = ({ ctx }: any) => {
   return (
     <div className="space-y-12 max-w-6xl mx-auto animate-in fade-in duration-500">
       <div>
-        {/* FIX: Ubah wording dari "Persetujuan Proposal" menjadi "Pantauan Jadwal Berjalan" */}
         <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center"><Activity className="mr-3 text-blue-600"/> 1. Pantauan Jadwal Berjalan & Persetujuan</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {ongoingEvents.length === 0 && <div className="col-span-2 bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center text-slate-400 font-bold">Tidak ada jadwal kegiatan yang sedang berjalan atau menunggu persetujuan.</div>}
@@ -1257,7 +1241,6 @@ const ViewAdminApprovals = ({ ctx }: any) => {
                   <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed font-medium">{evt.objective}</p>
                 </div>
                 
-                {/* FIX: Jika event sudah funded (ACC), cukup tampilkan status berjalan. Jika pending (legacy), tampilkan tombol ACC */}
                 {isLegacyPending ? (
                   <>
                     <input type="text" placeholder="Tambahkan catatan (Opsional)" className="w-full text-sm p-3 border-2 border-slate-100 rounded-xl mb-4 bg-white focus:border-blue-400 focus:ring-0 outline-none transition-colors" value={adminNotes[evt.id] || ''} onChange={e => setAdminNotes({...adminNotes, [evt.id]: e.target.value})} />
@@ -1294,37 +1277,29 @@ const ViewAdminApprovals = ({ ctx }: any) => {
   );
 };
 
-// 5. Database dengan Search & Filter Bulan + Status Filter
+// 5. Database
 const ViewDatabase = ({ ctx }: any) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMonth, setFilterMonth] = useState(''); 
-  const [filterStatus, setFilterStatus] = useState('completed'); // FIX: Tambahkan Filter Status Database
+  const [filterStatus, setFilterStatus] = useState('completed');
   const [showAddModal, setShowAddModal] = useState(false);
   
   const picAccounts = ctx.accounts.filter((a: any) => a.role === ROLES.PIC);
-  
   const [newArchive, setNewArchive] = useState({ pic_id: '', event_date: '', venue_name: '', attended: 0, actual_cost: 0 });
   
-  // FIX: Sesuaikan Filter Display Events agar Admin juga bisa memonitor yang 'ongoing' dari Arsip (Database)
   let displayEvents = ctx.events
     .filter((e: any) => {
       if (ctx.user.role !== ROLES.ADMIN && e.pic_id !== ctx.user.id) return false;
-      
       if (filterStatus === 'all') return true;
       if (filterStatus === 'ongoing') return ['funded', 'pending_settlement'].includes(e.status);
-      return e.status === 'completed'; // default
+      return e.status === 'completed';
     })
     .sort((a: any, b: any) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
 
-  if (filterMonth) {
-    displayEvents = displayEvents.filter((e: any) => e.event_date.startsWith(filterMonth));
-  }
+  if (filterMonth) displayEvents = displayEvents.filter((e: any) => e.event_date.startsWith(filterMonth));
   if (searchTerm) {
     const lowerTerm = searchTerm.toLowerCase();
-    displayEvents = displayEvents.filter((e: any) => 
-      e.sport_type.toLowerCase().includes(lowerTerm) || 
-      e.venue_name.toLowerCase().includes(lowerTerm)
-    );
+    displayEvents = displayEvents.filter((e: any) => e.sport_type.toLowerCase().includes(lowerTerm) || e.venue_name.toLowerCase().includes(lowerTerm));
   }
 
   const handleDeleteEvent = async (id: string) => {
@@ -1336,38 +1311,26 @@ const ViewDatabase = ({ ctx }: any) => {
 
   const handleAddArchive = async (e: any) => {
     e.preventDefault();
-    
     const selectedPic = ctx.accounts.find((a: any) => a.id === newArchive.pic_id);
-    if (!selectedPic) {
-      return ctx.showToast('Silakan pilih PIC/Cabor terlebih dahulu.', 'error');
-    }
+    if (!selectedPic) return ctx.showToast('Silakan pilih PIC/Cabor terlebih dahulu.', 'error');
     
     const archiveEvent = {
         id: generateId(),
-        pic_id: selectedPic.id,
-        sport_type: selectedPic.sport,
-        event_date: new Date(newArchive.event_date).toISOString(),
-        venue_name: newArchive.venue_name,
+        pic_id: selectedPic.id, sport_type: selectedPic.sport,
+        event_date: new Date(newArchive.event_date).toISOString(), venue_name: newArchive.venue_name,
         status: 'completed',
-        report: {
-            attended: Number(newArchive.attended),
-            actual_cost: Number(newArchive.actual_cost),
-            rating: 5,
-            notes: 'Arsip histori ditambahkan secara manual oleh Admin.',
-            files: {}
-        },
+        report: { attended: Number(newArchive.attended), actual_cost: Number(newArchive.actual_cost), rating: 5, notes: 'Arsip histori ditambahkan secara manual oleh Admin.', files: {} },
         budget_items: [{ desc: 'Realisasi Arsip Manual', qty: 1, unit: 'Lumpsum', price: Number(newArchive.actual_cost) }]
     };
     await ctx.addEvent(archiveEvent);
     setShowAddModal(false);
-    ctx.showToast('Data arsip manual berhasil ditambahkan dan terhubung dengan PIC terkait.', 'success');
+    ctx.showToast('Data arsip manual berhasil ditambahkan.', 'success');
   };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-3xl font-black text-slate-800 flex items-center"><Database className="mr-3 text-blue-600 w-8 h-8" /> Arsip Database Program</h2>
-        
         <div className="flex flex-wrap w-full md:w-auto gap-3">
           <div className="relative flex-grow md:w-48">
             <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
@@ -1377,7 +1340,6 @@ const ViewDatabase = ({ ctx }: any) => {
             <Filter className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
             <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="pl-9 pr-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white" />
           </div>
-          {/* FIX: Dropdown Status Filter */}
           <div className="relative">
             <Activity className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="pl-9 pr-8 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white appearance-none cursor-pointer">
@@ -1388,9 +1350,7 @@ const ViewDatabase = ({ ctx }: any) => {
           </div>
           <button 
             onClick={() => {
-              if (picAccounts.length > 0 && !newArchive.pic_id) {
-                setNewArchive(prev => ({ ...prev, pic_id: picAccounts[0].id }));
-              }
+              if (picAccounts.length > 0 && !newArchive.pic_id) setNewArchive(prev => ({ ...prev, pic_id: picAccounts[0].id }));
               setShowAddModal(true);
             }} 
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center transition-colors shadow-sm whitespace-nowrap">
@@ -1408,15 +1368,8 @@ const ViewDatabase = ({ ctx }: any) => {
           <form onSubmit={handleAddArchive} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Cabor / PIC</label>
-              <select 
-                required 
-                className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500 bg-white" 
-                value={newArchive.pic_id} 
-                onChange={e => setNewArchive({...newArchive, pic_id: e.target.value})}
-              >
-                {picAccounts.map((pic: any) => (
-                  <option key={pic.id} value={pic.id}>{pic.sport} ({pic.name})</option>
-                ))}
+              <select required className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500 bg-white" value={newArchive.pic_id} onChange={e => setNewArchive({...newArchive, pic_id: e.target.value})}>
+                {picAccounts.map((pic: any) => <option key={pic.id} value={pic.id}>{pic.sport} ({pic.name})</option>)}
               </select>
             </div>
             <div>
@@ -1465,7 +1418,6 @@ const ViewDatabase = ({ ctx }: any) => {
                   <tr key={evt.id} className="hover:bg-blue-50/40 transition-colors group">
                     <td className="p-5 text-slate-700 text-sm font-bold">{new Date(evt.event_date).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</td>
                     <td className="p-5">
-                      {/* FIX: Tampilkan status badge kecil jika event belum completed */}
                       <p className="font-black text-blue-900 flex items-center">
                         {evt.sport_type}
                         {evt.status !== 'completed' && <span className="ml-2 bg-blue-100 text-blue-700 font-black text-[9px] px-2 py-0.5 rounded uppercase tracking-wider shadow-sm">Berjalan</span>}
@@ -1495,7 +1447,7 @@ const ViewDatabase = ({ ctx }: any) => {
   );
 };
 
-// 6. Master Data & Pengaturan Jadwal (+ Delete Program)
+// 6. Master Data & Pengaturan Jadwal
 const ViewMasterData = ({ ctx }: any) => {
   const [tab, setTab] = useState('pic');
   const [newAcc, setNewAcc] = useState<any>({ 
@@ -1508,13 +1460,8 @@ const ViewMasterData = ({ ctx }: any) => {
 
   const handleAddPIC = async (e: any) => {
     e.preventDefault();
-    if (!newAcc.name || !newAcc.username || !newAcc.sport) {
-      return ctx.showToast('Harap lengkapi Nama, Username, dan Cabang Olahraga!', 'error');
-    }
-    
-    if (ctx.accounts.find((a: any) => a.username === newAcc.username.toLowerCase())) {
-      return ctx.showToast('Username sudah digunakan, pilih yang lain.', 'error');
-    }
+    if (!newAcc.name || !newAcc.username || !newAcc.sport) return ctx.showToast('Harap lengkapi Nama, Username, dan Cabang Olahraga!', 'error');
+    if (ctx.accounts.find((a: any) => a.username === newAcc.username.toLowerCase())) return ctx.showToast('Username sudah digunakan, pilih yang lain.', 'error');
 
     const newPicAccount = {
       id: generateId(), role: ROLES.PIC, password: '123', 
@@ -1522,10 +1469,17 @@ const ViewMasterData = ({ ctx }: any) => {
       division: newAcc.division, sport: newAcc.sport
     };
     
+    // Tanam histori budget awal
+    const defaultLimit = (Number(newAcc.costPerSession) + Number(newAcc.adminFee)) * Number(newAcc.freqNum);
     const newProgram = {
       id: generateId(), sport: newAcc.sport, day: newAcc.day,
       freqText: newAcc.freqText, freqNum: Number(newAcc.freqNum),
-      costPerSession: Number(newAcc.costPerSession), adminFee: Number(newAcc.adminFee)
+      costPerSession: Number(newAcc.costPerSession), adminFee: Number(newAcc.adminFee),
+      budget_history: [{
+        effective_month: '2020-01', // Tanggal lawas aman untuk default awal
+        costPerSession: Number(newAcc.costPerSession), adminFee: Number(newAcc.adminFee), freqNum: Number(newAcc.freqNum),
+        limit: defaultLimit
+      }]
     };
 
     try {
@@ -1540,39 +1494,83 @@ const ViewMasterData = ({ ctx }: any) => {
 
   const deleteAccount = async (id: string) => {
     if(window.confirm('Yakin ingin menghapus PIC ini?')) {
-      try {
-        await ctx.deleteAccount(id);
-        ctx.showToast('Akun berhasil dihapus.', 'success');
-      } catch (error) {
-        ctx.showToast('Gagal menghapus data.', 'error');
-      }
+      try { await ctx.deleteAccount(id); ctx.showToast('Akun berhasil dihapus.', 'success'); } 
+      catch (error) { ctx.showToast('Gagal menghapus data.', 'error'); }
     }
   };
 
   const handleDeleteProgram = async (id: string) => {
     if(window.confirm('PERINGATAN: Yakin ingin menghapus master jadwal & anggaran ini secara permanen? Hal ini akan memengaruhi metrik target.')) {
-      try {
-        await ctx.deleteProgram(id);
-        ctx.showToast('Jadwal program dan limit anggaran dihapus.', 'success');
-      } catch (error) {
-        ctx.showToast('Gagal menghapus data program.', 'error');
-      }
+      try { await ctx.deleteProgram(id); ctx.showToast('Jadwal program dan limit anggaran dihapus.', 'success'); } 
+      catch (error) { ctx.showToast('Gagal menghapus data program.', 'error'); }
     }
   };
 
   const startEditProg = (prog: any) => {
     setEditingProgId(prog.id);
-    setEditProgData({ ...prog });
+    const currentYm = new Date().toISOString().slice(0, 7);
+    const activeRules = getActiveProgramRules(prog, currentYm);
+    
+    setEditProgData({ 
+      ...prog, 
+      costPerSession: activeRules.costPerSession,
+      adminFee: activeRules.adminFee,
+      freqNum: activeRules.freqNum,
+      effective_month: currentYm 
+    });
   };
 
   const saveProg = async () => {
+    const effMonth = editProgData.effective_month || new Date().toISOString().slice(0,7);
+    const newLimit = (Number(editProgData.costPerSession) + Number(editProgData.adminFee)) * Number(editProgData.freqNum);
+    
+    let hist = editProgData.budget_history ? [...editProgData.budget_history] : [];
+    
+    // Jika data legacy yang belum punya histori, buatkan histori default dulu sebelum menumpuk yang baru
+    if (hist.length === 0) {
+      const oldProg = ctx.programs.find((p: any) => p.id === editingProgId);
+      if (oldProg) {
+        hist.push({
+          effective_month: '2020-01',
+          costPerSession: oldProg.costPerSession, adminFee: oldProg.adminFee, freqNum: oldProg.freqNum,
+          limit: (Number(oldProg.costPerSession) + Number(oldProg.adminFee)) * Number(oldProg.freqNum)
+        });
+      }
+    }
+
+    // Timpa jika diedit untuk effective_month yang sama
+    hist = hist.filter(h => h.effective_month !== effMonth);
+    
+    hist.push({
+      effective_month: effMonth,
+      costPerSession: Number(editProgData.costPerSession), adminFee: Number(editProgData.adminFee), freqNum: Number(editProgData.freqNum),
+      limit: newLimit
+    });
+
+    const finalData = {
+      ...editProgData,
+      budget_history: hist,
+      costPerSession: Number(editProgData.costPerSession), adminFee: Number(editProgData.adminFee), freqNum: Number(editProgData.freqNum)
+    };
+
     try {
-      await ctx.updateProgram(editingProgId, editProgData);
+      await ctx.updateProgram(editingProgId, finalData);
       setEditingProgId(null);
-      ctx.showToast('Jadwal program berhasil diperbarui!', 'success');
+      ctx.showToast('Anggaran baru tersimpan! Data lama tetap aman via Histori.', 'success');
     } catch (error) {
       ctx.showToast('Gagal memperbarui program.', 'error');
     }
+  };
+
+  const deleteHistory = async (progId: string, effMonth: string) => {
+    if(!window.confirm(`Hapus aturan anggaran yang berlaku mulai ${effMonth}?`)) return;
+    const prog = ctx.programs.find((p: any) => p.id === progId);
+    const newHist = prog.budget_history.filter((h: any) => h.effective_month !== effMonth);
+    try {
+      await ctx.updateProgram(progId, { budget_history: newHist });
+      if (editingProgId === progId) setEditProgData({ ...editProgData, budget_history: newHist });
+      ctx.showToast('Riwayat aturan berhasil dihapus.', 'success');
+    } catch(err) { ctx.showToast('Gagal menghapus riwayat.', 'error'); }
   };
 
   return (
@@ -1590,8 +1588,6 @@ const ViewMasterData = ({ ctx }: any) => {
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm sticky top-28">
               <h3 className="text-lg font-black text-slate-800 mb-5 flex items-center"><UserPlus className="w-5 h-5 mr-2 text-emerald-600"/> Tambah PIC & Program Baru</h3>
               <form onSubmit={handleAddPIC} className="space-y-4">
-                
-                {/* Data PIC */}
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
                   <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">1. Data Personil (PIC)</p>
                   <div>
@@ -1612,7 +1608,6 @@ const ViewMasterData = ({ ctx }: any) => {
                   </div>
                 </div>
 
-                {/* Data Program & Budget */}
                 <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 space-y-3">
                   <p className="text-[10px] font-black uppercase text-blue-500 tracking-wider">2. Setup Jadwal & Anggaran Awal</p>
                   <div className="flex gap-2">
@@ -1692,7 +1687,7 @@ const ViewMasterData = ({ ctx }: any) => {
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-100 bg-slate-50">
             <h3 className="text-lg font-black text-slate-800 flex items-center"><CalendarDays className="w-5 h-5 mr-2 text-indigo-600"/> Jadwal Master & Plafon Anggaran Bulanan</h3>
-            <p className="text-xs font-bold text-slate-500 mt-1">Perubahan pada data ini akan langsung mempengaruhi limit pengajuan PIC dan master kalender di Dashboard.</p>
+            <p className="text-xs font-bold text-slate-500 mt-1">Menggunakan Aturan Bulan: <b>{new Date().toISOString().slice(0, 7)} (Bulan Ini)</b></p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[800px]">
@@ -1702,60 +1697,115 @@ const ViewMasterData = ({ ctx }: any) => {
                   <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider w-1/6">Jadwal (Hari)</th>
                   <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider w-1/5">Frekuensi /Bulan</th>
                   <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider">Biaya /Sesi</th>
-                  <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider">Biaya Admin</th>
-                  <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider text-right">Total Plafon</th>
+                  <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider text-right">Plafon (Aktif)</th>
                   <th className="p-4 font-black text-slate-500 text-[10px] uppercase tracking-wider text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {ctx.programs.map((prog: any) => {
                   const isEditing = editingProgId === prog.id;
+                  const currentYm = new Date().toISOString().slice(0, 7);
+                  const activeRules = getActiveProgramRules(prog, currentYm);
+                  const currentLimit = getProgramLimitForMonth(prog, currentYm);
+
                   return (
-                    <tr key={prog.id} className={`${isEditing ? 'bg-indigo-50' : 'hover:bg-slate-50'} transition-colors`}>
-                      <td className="p-4 font-black text-blue-900">{prog.sport}</td>
-                      <td className="p-4">
-                        {isEditing ? (
-                          <input type="text" className="w-full p-2 border-2 border-indigo-200 rounded-lg text-sm font-bold outline-none" value={editProgData.day} onChange={e => setEditProgData({...editProgData, day: e.target.value})} />
-                        ) : <span className="font-bold text-slate-700">{prog.day}</span>}
-                      </td>
-                      <td className="p-4">
-                        {isEditing ? (
-                          <div className="flex gap-2">
-                            <input type="number" className="w-16 p-2 border-2 border-indigo-200 rounded-lg text-sm font-bold text-center outline-none" value={editProgData.freqNum} onChange={e => setEditProgData({...editProgData, freqNum: Number(e.target.value)})} />
-                            <input type="text" className="w-full p-2 border-2 border-indigo-200 rounded-lg text-sm font-bold outline-none" value={editProgData.freqText} onChange={e => setEditProgData({...editProgData, freqText: e.target.value})} />
-                          </div>
-                        ) : <div><span className="font-bold text-slate-700">{prog.freqText}</span> <span className="text-xs text-slate-400">({prog.freqNum}x)</span></div>}
-                      </td>
-                      <td className="p-4">
-                        {isEditing ? (
-                          <input type="number" className="w-full p-2 border-2 border-indigo-200 rounded-lg text-sm font-bold outline-none" value={editProgData.costPerSession} onChange={e => setEditProgData({...editProgData, costPerSession: Number(e.target.value)})} />
-                        ) : <span className="font-bold text-slate-700">{formatCurrency(prog.costPerSession)}</span>}
-                      </td>
-                      <td className="p-4">
-                        {isEditing ? (
-                          <input type="number" className="w-full p-2 border-2 border-indigo-200 rounded-lg text-sm font-bold outline-none" value={editProgData.adminFee} onChange={e => setEditProgData({...editProgData, adminFee: Number(e.target.value)})} />
-                        ) : <span className="font-bold text-slate-700">{formatCurrency(prog.adminFee)}</span>}
-                      </td>
-                      <td className="p-4 font-black text-emerald-700 text-right">
-                        {formatCurrency(isEditing ? calculateProgramTotal(editProgData) : calculateProgramTotal(prog))}
-                      </td>
-                      <td className="p-4 text-center whitespace-nowrap">
-                        {isEditing ? (
-                          <button onClick={saveProg} className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors shadow-sm"><Save size={16}/></button>
-                        ) : (
-                          <>
+                    <React.Fragment key={prog.id}>
+                      {!isEditing && (
+                        <tr className="hover:bg-slate-50 transition-colors">
+                          <td className="p-4 font-black text-blue-900">{prog.sport}</td>
+                          <td className="p-4 font-bold text-slate-700">{prog.day}</td>
+                          <td className="p-4">
+                            <span className="font-bold text-slate-700">{prog.freqText}</span> <span className="text-xs text-slate-400">({activeRules.freqNum}x)</span>
+                          </td>
+                          <td className="p-4 font-bold text-slate-700">{formatCurrency(activeRules.costPerSession)}</td>
+                          <td className="p-4 font-black text-emerald-700 text-right">{formatCurrency(currentLimit)}</td>
+                          <td className="p-4 text-center whitespace-nowrap">
                             <button onClick={() => startEditProg(prog)} className="p-2 text-indigo-500 bg-indigo-50 hover:bg-indigo-500 hover:text-white rounded-lg transition-colors"><Edit3 size={16}/></button>
                             <button onClick={() => handleDeleteProgram(prog.id)} className="p-2 text-red-500 bg-red-50 hover:bg-red-500 hover:text-white rounded-lg transition-colors ml-2"><Trash2 size={16}/></button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
+                          </td>
+                        </tr>
+                      )}
+
+                      {isEditing && (
+                        <tr className="bg-indigo-50/60 border-y-2 border-indigo-200">
+                          <td colSpan="6" className="p-6">
+                            <div className="flex justify-between items-center mb-5">
+                                <h4 className="font-black text-indigo-900 text-lg flex items-center"><Edit3 className="w-5 h-5 mr-2"/> Set Anggaran & Jadwal: {prog.sport}</h4>
+                                <button onClick={() => setEditingProgId(null)} className="text-slate-400 hover:bg-red-100 hover:text-red-500 p-2 rounded-full transition-colors"><XCircle className="w-6 h-6"/></button>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              {/* Setting Anggaran Editor */}
+                              <div className="bg-white p-5 rounded-2xl border border-indigo-100 shadow-sm space-y-4">
+                                <p className="text-xs font-black text-indigo-600 uppercase tracking-widest border-b border-indigo-50 pb-2 mb-4">1. Parameter Anggaran</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Jadwal Hari</label>
+                                    <select className="w-full p-3 border-2 border-slate-100 rounded-xl text-sm font-bold bg-slate-50 outline-none focus:border-indigo-400" value={editProgData.day} onChange={e => setEditProgData({...editProgData, day: e.target.value})}>
+                                      {['Senin','Selasa','Rabu','Kamis','Jumat','Random'].map(d => <option key={d} value={d}>{d}</option>)}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Teks Rutinitas</label>
+                                    <input type="text" className="w-full p-3 border-2 border-slate-100 rounded-xl text-sm font-bold bg-slate-50 outline-none focus:border-indigo-400" value={editProgData.freqText} onChange={e => setEditProgData({...editProgData, freqText: e.target.value})} />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Jml Frekuensi (Pengali)</label>
+                                  <input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl text-sm font-bold bg-slate-50 outline-none focus:border-indigo-400" value={editProgData.freqNum} onChange={e => setEditProgData({...editProgData, freqNum: e.target.value})} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Biaya Vendor/Sesi</label>
+                                    <input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl text-sm font-bold bg-slate-50 outline-none focus:border-indigo-400" value={editProgData.costPerSession} onChange={e => setEditProgData({...editProgData, costPerSession: e.target.value})} />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Biaya Admin Trx</label>
+                                    <input type="number" className="w-full p-3 border-2 border-slate-100 rounded-xl text-sm font-bold bg-slate-50 outline-none focus:border-indigo-400" value={editProgData.adminFee} onChange={e => setEditProgData({...editProgData, adminFee: e.target.value})} />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Rule Periode Editor */}
+                              <div className="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm flex flex-col justify-between">
+                                <div>
+                                  <p className="text-xs font-black text-emerald-600 uppercase tracking-widest border-b border-emerald-50 pb-2 mb-4">2. Masa Berlaku & Snapshot</p>
+                                  <label className="block text-sm font-black text-slate-700 mb-2">Perubahan ini Berlaku Mulai:</label>
+                                  <input type="month" className="w-full p-4 border-2 border-emerald-100 rounded-xl text-lg font-black outline-none focus:border-emerald-500 text-emerald-900 bg-emerald-50/50" value={editProgData.effective_month} onChange={e => setEditProgData({...editProgData, effective_month: e.target.value})} />
+                                  <p className="text-xs text-slate-500 mt-4 leading-relaxed font-medium">Bulan sebelumnya akan otomatis dibekukan menggunakan nilai historis lamanya agar tidak merusak data dasbor masa lalu. Anggaran baru akan jadi *default* untuk bulan terpilih dan seterusnya.</p>
+                                </div>
+                                <button onClick={saveProg} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-4 rounded-xl shadow-lg hover:-translate-y-0.5 transition-all mt-6 flex justify-center items-center"><Save className="w-5 h-5 mr-2" /> Terapkan & Simpan Anggaran</button>
+                              </div>
+                            </div>
+
+                            {/* Tampilan Riwayat yang ada */}
+                            <div className="mt-8">
+                              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-200 pb-2">Manajemen Riwayat Anggaran Bulanan</p>
+                              <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                                {(prog.budget_history || [{ effective_month: '2024-01', limit: (Number(prog.costPerSession)+Number(prog.adminFee))*Number(prog.freqNum) }])
+                                  .sort((a: any, b: any) => b.effective_month.localeCompare(a.effective_month))
+                                  .map((h: any, i: number) => (
+                                  <div key={i} className="bg-white p-4 rounded-2xl border border-slate-200 min-w-[200px] shadow-sm relative group flex flex-col justify-center">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-md">{h.effective_month}</span>
+                                      <button onClick={() => deleteHistory(prog.id, h.effective_month)} className="text-red-300 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3"/></button>
+                                    </div>
+                                    <span className="font-black text-slate-800 text-lg tracking-tight">{formatCurrency(h.limit || (Number(h.costPerSession)+Number(h.adminFee))*Number(h.freqNum))}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 mt-1">Default plafon aktif</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   )
                 })}
-                <tr className="bg-blue-50">
-                  <td colSpan="5" className="p-4 font-black text-right text-blue-900 uppercase tracking-wider text-xs">Grand Total Plafon / Bulan</td>
-                  <td className="p-4 font-black text-xl text-blue-900 text-right">
-                    {formatCurrency(ctx.programs.reduce((acc: any, p: any) => acc + calculateProgramTotal(p), 0))}
+                <tr className="bg-blue-50/50">
+                  <td colSpan="4" className="p-5 font-black text-right text-blue-900 uppercase tracking-widest text-xs">Total Target Plafon ({new Date().toISOString().slice(0, 7)})</td>
+                  <td className="p-5 font-black text-xl text-blue-900 text-right">
+                    {formatCurrency(ctx.programs.reduce((acc: any, p: any) => acc + getProgramLimitForMonth(p, new Date().toISOString().slice(0, 7)), 0))}
                   </td>
                   <td></td>
                 </tr>
@@ -1966,7 +2016,6 @@ export default function App() {
             <NavBtn id="dashboard" label="Dashboard" icon={<PieChart size={18} />} />
             {user.role === ROLES.PIC && (
               <>
-                {/* FIX: Ubah wording navigasi menjadi Catat Kegiatan */}
                 <NavBtn id="new_proposal" label="Catat Kegiatan" icon={<Plus size={18} />} />
                 <NavBtn id="reporting" label="Laporan Akhir" icon={<Upload size={18} />} badge={picPendingReport} />
               </>

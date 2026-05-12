@@ -614,7 +614,7 @@ const ViewDashboard = ({ ctx }: any) => {
       {/* FILTER ANALISIS TERPADU */}
       <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 relative z-20 mt-8">
         <div className="flex items-center text-blue-900 font-black whitespace-nowrap bg-blue-50 px-4 py-2.5 rounded-xl border border-blue-100">
-          <ListFilter className="w-5 h-5 mr-2"/> Filter Dasbor:
+          <ListFilter className="w-5 h-5 mr-2"/> Filter Dashboard:
         </div>
         
         <div className="flex flex-wrap flex-grow w-full gap-3">

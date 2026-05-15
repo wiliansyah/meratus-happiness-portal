@@ -73,25 +73,6 @@ const INITIAL_PROGRAMS = [
 
 const INITIAL_EVENTS = [
   {
-    id: 'evt1', pic_id: 'a3', sport_type: 'Futsal', event_date: '2026-05-20T19:00', venue_name: 'Futsal Surabaya', status: 'pending_approval',
-    objective: 'Pertandingan persahabatan antar divisi Commercial dan Operasional.',
-    participants: [{ id: 'p1', name: 'Andrew', dept: 'SBU' }, { id: 'p2', name: 'Ghofil', dept: 'SFU' }, { id: 'p3', name: 'Andi', dept: 'SBU' }, { id: 'p4', name: 'Budi', dept: 'SBU' }, { id: 'p5', name: 'Cici', dept: 'SFU' }, { id: 'p6', name: 'Dodi', dept: 'SFU' }, { id: 'p7', name: 'Eka', dept: 'SBU' }], 
-    budget_items: [{ desc: 'Sewa Lapangan (2 Jam)', qty: 1, unit: 'Sesi', price: 300000 }, { desc: 'Biaya Admin', qty: 1, unit: 'Trx', price: 6500 }]
-  },
-  {
-    id: 'evt2', pic_id: 'a2', sport_type: 'Badminton', event_date: '2026-05-18T18:00', venue_name: 'Lapangan Badminton Sudirman', status: 'funded',
-    objective: 'Latihan rutin mingguan.',
-    participants: Array(8).fill(0).map((_,i) => ({ id: `p${10+i}`, name: `Pemain ${i+1}`, dept: 'SBU' })), 
-    budget_items: [{ desc: 'Sewa Lapangan', qty: 1, unit: 'Sesi', price: 480000 }, { desc: 'Admin', qty: 1, unit: 'Trx', price: 6500 }]
-  },
-  {
-    id: 'evt3', pic_id: 'a5', sport_type: 'Yoga, Zumba, Poundfit', event_date: '2026-05-01T16:30', venue_name: 'Studio Yoga HO Meratus', status: 'pending_settlement',
-    objective: 'Relaksasi karyawan bulanan.',
-    participants: Array(10).fill(0).map((_,i) => ({ id: `p${20+i}`, name: `Peserta ${i+1}`, dept: 'SFU' })), 
-    budget_items: [{ desc: 'Instruktur Yoga', qty: 1, unit: 'Sesi', price: 500000 }, { desc: 'Admin', qty: 1, unit: 'Trx', price: 6500 }],
-    report: { actual_cost: 506500, attended: 10, notes: 'Instruktur datang tepat waktu.', rating: 5, files: { nota: 'inv_yoga.pdf', absensi: 'absen.jpg', foto: 'doc_yoga.jpg' } }
-  },
-  {
     id: 'evt4', pic_id: 'a3', sport_type: 'Futsal', event_date: '2026-04-15T19:00', venue_name: 'Futsal Surabaya', status: 'completed',
     objective: 'Latihan mingguan.', budget_items: [{ desc: 'Sewa Lapangan', qty: 1, unit: 'Sesi', price: 300000 }, { desc: 'Admin', qty: 1, unit: 'Trx', price: 6500 }],
     report: { actual_cost: 306500, attended: 12, notes: 'Berjalan lancar dan seru.', rating: 4, files: { nota: 'inv_futsal.pdf', foto: 'doc.jpg' } }
@@ -111,18 +92,15 @@ const INITIAL_EVENTS = [
 // --- HELPER LOGIC HISTORI ANGGARAN (BUDGET OVERRIDES) ---
 const getActiveProgramRules = (prog: any, yyyy_mm: string) => {
   if (prog.budget_history && prog.budget_history.length > 0) {
-    // Cari history terbaru yang bulan berlakunya lebih kecil atau sama dengan bulan yg dicari (<= yyyy_mm)
     const sortedHist = [...prog.budget_history].sort((a, b) => b.effective_month.localeCompare(a.effective_month));
     const activeHist = sortedHist.find(h => h.effective_month <= yyyy_mm);
     if (activeHist) return activeHist;
   }
-  // Fallback untuk data legacy
   return prog;
 };
 
 const getProgramLimitForMonth = (prog: any, yyyy_mm: string) => {
   const activeRules = getActiveProgramRules(prog, yyyy_mm);
-  // Kalau ada explicit 'limit' di dalam history, pakai itu, kalau tidak kalkulasi manual
   if (activeRules.limit !== undefined) return activeRules.limit;
   return (Number(activeRules.costPerSession || 0) + Number(activeRules.adminFee || 0)) * Number(activeRules.freqNum || 0);
 };
@@ -277,8 +255,17 @@ const FilePreviewModal = ({ fileObj, onClose }: any) => {
 const EventDetailModal = ({ event, onClose, ctx }: any) => {
   if (!event) return null;
   const pic = ctx.accounts.find((a: any) => a.id === event.pic_id);
-  const proposedTotal = calculateTotalBudget(event.budget_items);
-  const actualTotal = event.report?.actual_cost || 0;
+  const isPIC = ctx.user.role === ROLES.PIC;
+  
+  // Hide Admin fee from PIC view completely
+  const displayBudgetItems = isPIC 
+    ? event.budget_items?.filter((it: any) => !it.desc.toLowerCase().includes('admin'))
+    : event.budget_items;
+
+  const actualTotal = event.report?.actual_cost || calculateTotalBudget(event.budget_items);
+  // Total proposed yang diperlihatkan ke user bergantung dari roles
+  const displayProposedTotal = calculateTotalBudget(displayBudgetItems);
+  
   const statusInfo = getStatusDisplay(event.status);
 
   return (
@@ -302,8 +289,8 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
                 <p className="font-bold text-slate-800">{event.venue_name}</p>
               </div>
               <div className="bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200">
-                 <p className="text-[10px] font-black text-blue-600 uppercase">Rencana Peserta</p>
-                 <p className="font-black text-blue-900 text-right">{event.participants?.length || 0} Orang</p>
+                 <p className="text-[10px] font-black text-blue-600 uppercase">Peserta Terdaftar</p>
+                 <p className="font-black text-blue-900 text-right">{event.report?.attended || event.participants?.length || 0} Orang</p>
               </div>
             </div>
           </div>
@@ -313,31 +300,16 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
             <p className="text-sm text-slate-600 bg-white p-4 rounded-xl border border-slate-200 leading-relaxed">{event.objective || '-'}</p>
           </div>
 
-          {ctx.user.role === ROLES.ADMIN && event.participants && (
-            <div>
-               <h3 className="font-bold text-slate-800 mb-3 flex items-center"><Users className="w-5 h-5 mr-2 text-blue-600"/> Rencana Daftar Peserta Awal</h3>
-               <div className="bg-white border border-slate-200 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                 {event.participants.map((p: any, i: number) => (
-                   <div key={i} className="flex items-center text-sm p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                     <span className="font-black text-slate-400 w-6">{i+1}.</span>
-                     <span className="font-bold text-slate-700 flex-grow">{p.name}</span>
-                     <span className="text-xs bg-slate-200 px-2 py-0.5 rounded text-slate-600 font-bold">{p.dept}</span>
-                   </div>
-                 ))}
-               </div>
-            </div>
-          )}
-
           <div>
-            <h3 className="font-bold text-slate-800 mb-3 flex items-center"><DollarSign className="w-5 h-5 mr-2 text-emerald-600"/> Rincian Anggaran (Rencana)</h3>
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center"><DollarSign className="w-5 h-5 mr-2 text-emerald-600"/> Rincian Anggaran</h3>
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50"><tr className="border-b border-slate-200"><th className="p-4 font-bold text-slate-600">Item</th><th className="p-4 font-bold text-slate-600">Qty</th><th className="p-4 font-bold text-slate-600">Harga Satuan</th><th className="p-4 font-bold text-slate-600 text-right">Total</th></tr></thead>
                 <tbody>
-                  {event.budget_items?.map((it: any, i: number) => (
+                  {displayBudgetItems?.map((it: any, i: number) => (
                     <tr key={i} className="border-b border-slate-100 last:border-0"><td className="p-4">{it.desc}</td><td className="p-4">{it.qty} {it.unit}</td><td className="p-4">{formatCurrency(it.price)}</td><td className="p-4 font-semibold text-right">{formatCurrency(it.price * it.qty)}</td></tr>
                   ))}
-                  <tr className="bg-blue-50/50"><td colSpan="3" className="p-4 text-right font-bold text-slate-700">Total Pengajuan:</td><td className="p-4 font-black text-blue-900 text-right text-lg">{formatCurrency(proposedTotal)}</td></tr>
+                  <tr className="bg-blue-50/50"><td colSpan="3" className="p-4 text-right font-bold text-slate-700">Total Pengajuan:</td><td className="p-4 font-black text-blue-900 text-right text-lg">{formatCurrency(displayProposedTotal)}</td></tr>
                 </tbody>
               </table>
             </div>
@@ -348,10 +320,12 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
               <h3 className="font-bold text-slate-800 mb-5 flex items-center"><FileCheck className="w-6 h-6 mr-2 text-purple-600"/> Laporan Realisasi Akhir</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <div className={`p-6 rounded-2xl border-2 ${actualTotal > proposedTotal ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">Total Realisasi (Sesuai Nota)</p>
-                    <p className="text-3xl font-black text-slate-800">{formatCurrency(actualTotal)}</p>
-                    <p className="text-sm font-bold mt-2 text-slate-600">Selisih: <span className={actualTotal > proposedTotal ? 'text-red-600' : 'text-emerald-600'}>{formatCurrency(actualTotal - proposedTotal)}</span></p>
+                  <div className={`p-6 rounded-2xl border-2 ${actualTotal > displayProposedTotal ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">Total Realisasi System</p>
+                    <p className="text-3xl font-black text-slate-800">{formatCurrency(isPIC ? (event.report?.vendor_cost || actualTotal) : actualTotal)}</p>
+                    <p className="text-sm font-bold mt-2 text-slate-600">
+                      Selisih vs Target: <span className={actualTotal > displayProposedTotal ? 'text-red-600' : 'text-emerald-600'}>{formatCurrency(actualTotal - displayProposedTotal)}</span>
+                    </p>
                   </div>
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
@@ -528,7 +502,7 @@ const ViewDashboard = ({ ctx }: any) => {
   const totalCompletedEvents = currentPeriodEvents.filter((e: any) => e.status === 'completed').length;
   
   const totalBudgetSpent = currentPeriodEvents.filter((e: any) => e.status === 'completed')
-    .reduce((acc: any, curr: any) => acc + (curr.report?.actual_cost || 0), 0);
+    .reduce((acc: any, curr: any) => acc + (curr.report?.actual_cost || calculateTotalBudget(curr.budget_items)), 0);
   
   // Plafon dihitung secara dinamis via budget_history per bulannya
   const totalAllocated = programsToMonitor.reduce((acc: any, p: any) => acc + getTotalPlafonForPeriod(p, filterType, filterValue, filterYear), 0);
@@ -550,8 +524,8 @@ const ViewDashboard = ({ ctx }: any) => {
       });
       
       const totalEvts = evtsInYear.length;
-      const totalPax = evtsInYear.reduce((sum: any, e: any) => sum + (e.report?.attended || 0), 0);
-      const budgetSpent = evtsInYear.reduce((sum: any, e: any) => sum + (e.report?.actual_cost || 0), 0);
+      const totalPax = evtsInYear.reduce((sum: any, e: any) => sum + (e.report?.attended || e.participants?.length || 0), 0);
+      const budgetSpent = evtsInYear.reduce((sum: any, e: any) => sum + (e.report?.actual_cost || calculateTotalBudget(e.budget_items)), 0);
       return { periodLabel: p.label, events: totalEvts, participants: totalPax, budgetSpent };
     });
   };
@@ -582,8 +556,8 @@ const ViewDashboard = ({ ctx }: any) => {
             <p className="text-blue-100 font-medium">Jadwal kegiatan <b>{myProgram.sport}</b> adalah setiap hari <b>{myProgram.day}</b> ({myProgram.freqText}).</p>
             <p className="text-sm mt-2 text-yellow-300 font-bold">Periode ini tercatat {currentPeriodEvents.length} kegiatan masuk.</p>
           </div>
-          <button onClick={() => ctx.setView('new_proposal')} className="bg-white text-indigo-700 hover:bg-blue-50 font-black px-6 py-3 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 flex-shrink-0 flex items-center">
-            Catat Kegiatan Sekarang <ArrowRight className="ml-2 w-4 h-4"/>
+          <button onClick={() => ctx.setView('reporting')} className="bg-white text-indigo-700 hover:bg-blue-50 font-black px-6 py-3 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all relative z-10 flex-shrink-0 flex items-center">
+            Buat Laporan Baru <ArrowRight className="ml-2 w-4 h-4"/>
           </button>
         </div>
       )}
@@ -746,7 +720,7 @@ const ViewDashboard = ({ ctx }: any) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {programsToMonitor.map((prog: any) => {
               const progEvents = currentPeriodEvents.filter((e: any) => e.sport_type.includes(prog.sport) && e.status === 'completed');
-              const spent = progEvents.reduce((sum: any, e: any) => sum + (e.report?.actual_cost || 0), 0);
+              const spent = progEvents.reduce((sum: any, e: any) => sum + (e.report?.actual_cost || calculateTotalBudget(e.budget_items)), 0);
               
               // Plafon Dinamis Menggunakan Helper budget_history
               const plafon = getTotalPlafonForPeriod(prog, filterType, filterValue, filterYear);
@@ -788,6 +762,7 @@ const ViewDashboard = ({ ctx }: any) => {
               <div className="grid grid-cols-1 gap-4">
                 {currentPeriodEvents.sort((a: any, b: any) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime()).map((evt: any) => {
                   const statusInfo = getStatusDisplay(evt.status);
+                  const isPIC = ctx.user.role === ROLES.PIC;
                   
                   return (
                     <div key={evt.id} className="flex flex-col p-5 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all">
@@ -797,7 +772,9 @@ const ViewDashboard = ({ ctx }: any) => {
                           <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase truncate max-w-[150px]"><MapPin className="w-3 h-3 inline mr-1 -mt-0.5"/>{evt.venue_name}</p>
                           <p className="text-[10px] font-bold text-slate-400 mt-1"><Clock className="w-3 h-3 inline mr-1 -mt-0.5"/>{new Date(evt.event_date).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</p>
                         </div>
-                        <p className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 whitespace-nowrap">{formatCurrency(evt.report?.actual_cost || calculateTotalBudget(evt.budget_items))}</p>
+                        <p className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 whitespace-nowrap">
+                          {formatCurrency(isPIC ? (evt.report?.vendor_cost || evt.report?.actual_cost || calculateTotalBudget(evt.budget_items)) : (evt.report?.actual_cost || calculateTotalBudget(evt.budget_items)))}
+                        </p>
                       </div>
                       
                       {/* Visual Stepper Khusus PIC */}
@@ -834,125 +811,17 @@ const ViewDashboard = ({ ctx }: any) => {
   );
 };
 
-// 2. Form Pencatatan Kegiatan
-const ViewNewProposal = ({ ctx }: any) => {
-  const currentYm = new Date().toISOString().slice(0, 7);
+// 2. Form Pelaporan & Pencatatan Baru (Kombinasi)
+const ViewReporting = ({ ctx }: any) => {
   const defaultSport = ctx.user.sport || '';
   const defaultProgram = ctx.programs.find((p: any) => p.sport === defaultSport) || {};
-  
-  // Mengambil rule program berdasarkan histori pada bulan saat ini
+  const currentYm = new Date().toISOString().slice(0, 7);
   const activeRules = getActiveProgramRules(defaultProgram, currentYm);
 
-  const [formData, setFormData] = useState<any>({ sport: defaultSport, date: '', venue: '', objective: '' });
-  const [participantCount, setParticipantCount] = useState<number | ''>('');
-  const [budgetItems, setBudgetItems] = useState<any[]>([
-    { desc: 'Sewa Lapangan/Vendor', qty: 1, unit: 'Sesi', price: activeRules.costPerSession || '' },
-    { desc: 'Biaya Admin', qty: 1, unit: 'Trx', price: activeRules.adminFee || '' }
-  ]);
-
-  const totalProp = calculateTotalBudget(budgetItems);
-
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
-    const numPax = Number(participantCount);
-    
-    if(numPax < 7) return ctx.showToast(`Pengajuan wajib minimal 7 peserta! Anda baru memasukkan angka ${numPax}.`, 'error');
-    
-    const dummyParticipants = Array(numPax).fill(null).map((_, i) => ({ id: generateId(), name: `Peserta Rencana ${i + 1}`, dept: '-' }));
-    
-    const newEvent = {
-      id: generateId(), pic_id: ctx.user.id, sport_type: formData.sport, event_date: new Date(formData.date).toISOString(),
-      venue_name: formData.venue, objective: formData.objective, 
-      status: 'funded', 
-      participants: dummyParticipants,
-      budget_items: budgetItems.map((i) => ({ ...i, price: Number(i.price) })),
-    };
-    try {
-      await ctx.addEvent(newEvent);
-      ctx.setView('reporting');
-      ctx.showToast('Jadwal berhasil dicatat! Silakan lanjut unggah bukti pelaporan akhir.', 'success');
-    } catch (err) {
-      ctx.showToast('Terjadi kesalahan saat menghubungi server.', 'error');
-    }
-  };
-
-  return (
-    <div className="max-w-4xl mx-auto animate-in fade-in duration-500">
-      <div className="bg-white p-8 md:p-10 rounded-3xl shadow-sm border border-slate-200">
-        <h2 className="text-3xl font-black mb-8 text-slate-800 border-b border-slate-100 pb-5">Catat Jadwal Kegiatan Rutin</h2>
-        
-        <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl mb-8 flex items-start">
-          <AlertCircle className="w-5 h-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
-          <p className="text-sm font-bold text-blue-900 leading-relaxed">
-            Perhatian PIC: Kegiatan rutin Anda telah <span className="text-emerald-600 font-black">disetujui (ACC) otomatis</span>. Silakan catat jadwal pelaksanaan di bawah ini (dengan <span className="text-red-600 font-black">minimal 7 peserta</span>) untuk langsung berlanjut ke form validasi/pelaporan akhir nota.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Tanggal & Waktu</label>
-              <input type="datetime-local" required className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Venue Pelaksanaan</label>
-              <input type="text" required placeholder="Cth: DDB Arena" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" onChange={(e) => setFormData({ ...formData, venue: e.target.value })} />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Objektif Kegiatan (Justifikasi)</label>
-            <textarea required rows="2" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" placeholder="Contoh: Latihan rutin dan persiapan acara akhir tahun..." onChange={(e) => setFormData({ ...formData, objective: e.target.value })}></textarea>
-          </div>
-          
-          <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-            <div className="mb-4">
-              <label className="block text-sm font-black text-slate-800">Jumlah Rencana Peserta</label>
-              <p className="text-xs text-red-500 font-bold mt-1">* Wajib Minimal 7 Orang</p>
-            </div>
-            <div className="relative max-w-xs">
-              <Users className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-              <input type="number" min="7" required placeholder="Masukkan jumlah..." className="w-full pl-12 pr-4 py-3 border-2 border-slate-200 rounded-xl text-sm bg-white outline-none focus:border-blue-500 font-bold" value={participantCount} onChange={e => setParticipantCount(e.target.value)} />
-            </div>
-          </div>
-
-          <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="font-black text-blue-900">Rincian Anggaran Awal</h3>
-              <button type="button" onClick={() => setBudgetItems([...budgetItems, { desc: '', qty: 1, unit: 'Sesi', price: '' }])} className="text-xs bg-white shadow-sm border border-slate-200 px-4 py-2 rounded-lg font-bold text-blue-700 hover:bg-slate-50 flex items-center"><Plus className="w-4 h-4 mr-1"/> Tambah Item</button>
-            </div>
-            <div className="space-y-3">
-              {budgetItems.map((item, idx) => (
-                <div key={idx} className="flex gap-3 items-center">
-                  <input type="text" placeholder="Deskripsi Item" required className="flex-grow p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white" value={item.desc} onChange={e => { const b = [...budgetItems]; b[idx] = {...b[idx], desc: e.target.value}; setBudgetItems(b); }} />
-                  <input type="number" required min="1" className="w-24 p-3 border border-slate-200 rounded-xl text-sm text-center outline-none focus:border-blue-500 bg-white" value={item.qty} onChange={e => { const b = [...budgetItems]; b[idx] = {...b[idx], qty: e.target.value}; setBudgetItems(b); }} />
-                  <input type="number" placeholder="Harga Satuan" required className="w-40 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-500 bg-white" value={item.price} onChange={e => { const b = [...budgetItems]; b[idx] = {...b[idx], price: e.target.value}; setBudgetItems(b); }} />
-                  <button type="button" onClick={() => setBudgetItems(budgetItems.filter((_, i) => i !== idx))} className="p-3 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={20}/></button>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 text-right pt-6 border-t border-blue-200">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Total Rencana Anggaran</p>
-              <p className="text-3xl font-black text-blue-900">{formatCurrency(totalProp)}</p>
-            </div>
-          </div>
-          <button type="submit" className="w-full bg-blue-800 hover:bg-blue-900 transition-all text-white font-black text-lg py-5 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5">Catat Kegiatan & Lanjut Pelaporan</button>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// 3. Form Pelaporan
-const ViewReporting = ({ ctx }: any) => {
-  const [reportingId, setReportingId] = useState(null);
-  const [reportData, setReportData] = useState<any>({ actual_cost: '', attended: 0, notes: '', rating: 5, files: { nota: null, absensi: null, foto: null } });
-
-  const eventsToReport = ctx.events.filter((e: any) => e.pic_id === ctx.user.id && e.status === 'funded');
-
-  const openForm = (evt: any) => {
-    setReportingId(evt.id);
-    setReportData({ ...reportData, actual_cost: calculateTotalBudget(evt.budget_items), attended: evt.participants?.length || 0 }); 
-  };
+  const [formData, setFormData] = useState<any>({ 
+    date: '', venue: '', objective: '', actual_cost: '', attended: '', notes: '', rating: 5, 
+    files: { nota: null, absensi: null, foto: null } 
+  });
 
   const handleFile = (e: any, type: string) => { 
     const file = e.target.files[0];
@@ -982,27 +851,59 @@ const ViewReporting = ({ ctx }: any) => {
             if(canvasCtx) { canvasCtx.fillStyle = '#FFFFFF'; canvasCtx.fillRect(0, 0, width, height); canvasCtx.drawImage(img, 0, 0, width, height); }
 
             const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-            setReportData(prev => ({ ...prev, files: { ...prev.files, [type]: { name: file.name, type: 'image/jpeg', data: compressedDataUrl } } }));
+            setFormData(prev => ({ ...prev, files: { ...prev.files, [type]: { name: file.name, type: 'image/jpeg', data: compressedDataUrl } } }));
             ctx.showToast(`Sukses memproses & mengkompresi gambar: ${file.name}`, 'success');
           } catch(err) { ctx.showToast('Terjadi kesalahan saat memproses gambar.', 'error'); }
         };
         img.onerror = () => { ctx.showToast('Gagal memproses gambar. Format mungkin tidak didukung.', 'error'); };
         img.src = fileData;
       } else {
-        setReportData(prev => ({ ...prev, files: { ...prev.files, [type]: { name: file.name, type: file.type, data: fileData } } }));
+        setFormData(prev => ({ ...prev, files: { ...prev.files, [type]: { name: file.name, type: file.type, data: fileData } } }));
       }
     };
     reader.onerror = () => { ctx.showToast('Gagal membaca file perangkat.', 'error'); };
     reader.readAsDataURL(file);
   };
 
-  const handleSubmitReport = async (id: string) => {
-    if(!reportData.files.nota || !reportData.files.foto) return ctx.showToast('Silakan unggah Nota dan Foto Dokumentasi untuk melanjutkan.', 'error');
-    if(reportData.attended === 0) return ctx.showToast('Silakan masukkan jumlah kehadiran aktual.', 'error');
+  const handleSubmitReport = async (e: any) => {
+    e.preventDefault();
+    if(!formData.files.nota || !formData.files.foto) return ctx.showToast('Silakan unggah Nota dan Foto Dokumentasi untuk melanjutkan.', 'error');
+    if(Number(formData.attended) < 7) return ctx.showToast('Minimal pengajuan adalah 7 peserta.', 'error');
+
+    // Menghitung Biaya dengan menyuntikkan Biaya Admin Otomatis tanpa PIC sadari
+    const vendorCost = Number(formData.actual_cost);
+    const adminFee = Number(activeRules.adminFee || 0);
+    const totalCost = vendorCost + adminFee;
+
+    const dummyParticipants = Array(Number(formData.attended)).fill(null).map((_, i) => ({ id: generateId(), name: `Peserta ${i + 1}`, dept: '-' }));
+
+    const newEvent = {
+      id: generateId(),
+      pic_id: ctx.user.id,
+      sport_type: ctx.user.sport,
+      event_date: new Date(formData.date).toISOString(),
+      venue_name: formData.venue,
+      objective: formData.objective,
+      status: 'pending_settlement',
+      participants: dummyParticipants,
+      budget_items: [
+        { desc: 'Realisasi Vendor (Nota)', qty: 1, unit: 'Sesi', price: vendorCost },
+        { desc: 'Biaya Admin Transfer', qty: 1, unit: 'Trx', price: adminFee } // Admin Fee di-inject otomatis
+      ],
+      report: {
+        actual_cost: totalCost,     // Disimpan total beserta admin untuk Admin Approve
+        vendor_cost: vendorCost,    // Disimpan untuk PIC
+        admin_fee: adminFee,
+        attended: Number(formData.attended),
+        notes: formData.notes,
+        rating: formData.rating,
+        files: formData.files
+      }
+    };
 
     try {
-      await ctx.updateEvent(id, { status: 'pending_settlement', report: { ...reportData, actual_cost: Number(reportData.actual_cost) } });
-      setReportingId(null);
+      await ctx.addEvent(newEvent);
+      ctx.setView('dashboard');
       ctx.showToast('Laporan berhasil dikirim untuk validasi Admin!', 'success');
     } catch (error) {
       ctx.showToast('Gagal mengirim laporan. Coba kurangi ukuran file Anda.', 'error');
@@ -1011,117 +912,104 @@ const ViewReporting = ({ ctx }: any) => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in duration-500">
-      <h2 className="text-3xl font-black text-slate-800 mb-8">Tugas Pelaporan (Post-Event)</h2>
-      {eventsToReport.length === 0 ? (
-        <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center text-slate-500 flex flex-col items-center shadow-sm">
-          <div className="bg-emerald-50 p-6 rounded-full mb-6"><CheckCircle className="w-16 h-16 text-emerald-400" /></div>
-          <p className="font-black text-2xl text-slate-700">Luar Biasa!</p>
-          <p className="font-medium mt-2">Tidak ada laporan yang perlu diselesaikan saat ini.</p>
-        </div>
-      ) : (
-        eventsToReport.map((evt: any) => (
-          reportingId === evt.id ? (
-            <div key={evt.id} className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-2 bg-orange-500"></div>
-              <h3 className="text-2xl font-black mb-8 text-slate-800 flex items-center"><FileText className="mr-3 text-red-500"/> Form Pelaporan: {evt.sport_type}</h3>
-              <div className="space-y-8">
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-6 items-center justify-between">
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Rencana Anggaran Awal</p>
-                    <p className="text-2xl font-black text-slate-400 line-through mt-1">{formatCurrency(calculateTotalBudget(evt.budget_items))}</p>
-                  </div>
-                  <div className="flex-grow w-full md:w-auto md:max-w-sm">
-                    <label className="block text-sm font-black mb-2 text-emerald-700">Total Realisasi Akhir (Sesuai Nota)</label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-4 top-4 w-5 h-5 text-emerald-500" />
-                      <input type="number" className="w-full pl-12 pr-4 py-3 border-2 border-emerald-200 rounded-xl bg-white font-black text-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all" value={reportData.actual_cost} onChange={(e) => setReportData({...reportData, actual_cost: e.target.value})} />
-                    </div>
-                  </div>
-                </div>
+      <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-2 bg-blue-500"></div>
+        <h3 className="text-3xl font-black mb-8 text-slate-800 flex items-center border-b border-slate-100 pb-5"><FileText className="mr-3 text-blue-500 w-8 h-8"/> Laporan Kegiatan Baru: {ctx.user.sport}</h3>
+        
+        <form onSubmit={handleSubmitReport} className="space-y-8">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Tanggal & Waktu Pelaksanaan</label>
+              <input type="datetime-local" required className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Venue Pelaksanaan</label>
+              <input type="text" required placeholder="Cth: DDB Arena" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" value={formData.venue} onChange={(e) => setFormData({ ...formData, venue: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Objektif Kegiatan</label>
+            <textarea required rows="2" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" placeholder="Contoh: Latihan rutin bulanan untuk menjaga kebugaran..." value={formData.objective} onChange={(e) => setFormData({ ...formData, objective: e.target.value })}></textarea>
+          </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="border-2 border-slate-100 p-6 rounded-2xl bg-white flex flex-col justify-center">
-                    <p className="font-black text-slate-800 mb-4">Jumlah Kehadiran Aktual</p>
-                    <div className="relative">
-                      <Users className="absolute left-4 top-4 w-6 h-6 text-blue-500" />
-                      <input type="number" min="0" className="w-full pl-14 pr-4 py-3 border-2 border-blue-200 rounded-xl bg-slate-50 font-black text-2xl outline-none focus:border-blue-500 transition-all" value={reportData.attended} onChange={(e) => setReportData({...reportData, attended: parseInt(e.target.value) || 0})} />
-                    </div>
-                    <p className="text-xs text-slate-500 mt-4 font-medium leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">Cukup ketik total angka peserta yang hadir. <br/><span className="text-red-500 font-bold">Wajib melampirkan file dokumen absensi (Excel/PDF/Foto) pada kolom unggah di bawah sebagai bukti otentik.</span></p>
-                  </div>
-                  <div className="border-2 border-slate-100 p-6 rounded-2xl bg-white flex flex-col justify-between">
-                    <div>
-                      <p className="font-black text-slate-800 mb-3">Penilaian Tempat / Vendor</p>
-                      <div className="flex gap-2 mb-6">
-                        {[1,2,3,4,5].map(n => (
-                          <button type="button" key={n} onClick={() => setReportData({...reportData, rating: n})} className={`p-1 transition-transform hover:scale-125 ${reportData.rating >= n ? 'text-orange-500' : 'text-slate-200'}`}><Star className="w-8 h-8 fill-current"/></button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-black text-slate-800 mb-2">Catatan Pelaksanaan</label>
-                      <textarea className="w-full p-4 border-2 border-slate-100 rounded-xl outline-none text-sm bg-slate-50 focus:border-blue-500 focus:bg-white transition-colors" rows="3" placeholder="Tulis rincian atau kesan pesan acara..." value={reportData.notes} onChange={(e)=>setReportData({...reportData, notes: e.target.value})}></textarea>
-                    </div>
-                  </div>
-                </div>
+          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-6 items-center justify-between">
+            <div className="flex-grow w-full md:w-auto md:max-w-md">
+              <label className="block text-sm font-black mb-2 text-emerald-700">Total Biaya Sesuai Nota/Vendor</label>
+              <div className="relative">
+                <DollarSign className="absolute left-4 top-4 w-5 h-5 text-emerald-500" />
+                <input type="number" required className="w-full pl-12 pr-4 py-3 border-2 border-emerald-200 rounded-xl bg-white font-black text-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all" value={formData.actual_cost} onChange={(e) => setFormData({...formData, actual_cost: e.target.value})} placeholder="Masukkan Nominal Sesuai Nota" />
+              </div>
+              <p className="text-xs text-slate-500 mt-2 font-medium">Hanya masukkan total nota vendor saja. Sistem otomatis menambahkan biaya admin transfer.</p>
+            </div>
+          </div>
 
-                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
-                  <p className="font-black text-blue-900 mb-5 flex items-center"><Paperclip className="w-5 h-5 mr-2"/> Unggah Dokumen Bukti</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white p-4 rounded-xl shadow-sm">
-                      <label className="block text-xs font-bold text-slate-600 mb-2">1. Nota / Invoice (Wajib)</label>
-                      <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'nota')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                      {reportData.files.nota && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {reportData.files.nota.name}</p>}
-                    </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm">
-                      <label className="block text-xs font-bold text-slate-600 mb-2">2. Foto Kegiatan (Wajib)</label>
-                      <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'foto')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                      {reportData.files.foto && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {reportData.files.foto.name}</p>}
-                    </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm">
-                      <label className="block text-xs font-bold text-slate-600 mb-2">3. Daftar Hadir (Opsional)</label>
-                      <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'absensi')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                      {reportData.files.absensi && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {reportData.files.absensi.name}</p>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button onClick={() => setReportingId(null)} className="px-8 py-4 bg-slate-100 font-black rounded-xl text-slate-600 hover:bg-slate-200 transition-colors">Batal</button>
-                  <button onClick={() => handleSubmitReport(evt.id)} className="flex-grow bg-blue-900 hover:bg-blue-800 text-white font-black py-4 rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all text-lg">Kirim Laporan Akhir</button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="border-2 border-slate-100 p-6 rounded-2xl bg-white flex flex-col justify-center">
+              <p className="font-black text-slate-800 mb-4">Jumlah Kehadiran Aktual</p>
+              <div className="relative">
+                <Users className="absolute left-4 top-4 w-6 h-6 text-blue-500" />
+                <input type="number" required min="7" className="w-full pl-14 pr-4 py-3 border-2 border-blue-200 rounded-xl bg-slate-50 font-black text-2xl outline-none focus:border-blue-500 transition-all" value={formData.attended} onChange={(e) => setFormData({...formData, attended: e.target.value})} placeholder="0" />
+              </div>
+              <p className="text-xs text-slate-500 mt-4 font-medium leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">Ketikan angka total peserta yang hadir (Minimal 7 orang). <br/><span className="text-red-500 font-bold">Wajib melampirkan file dokumen absensi sebagai bukti otentik.</span></p>
+            </div>
+            <div className="border-2 border-slate-100 p-6 rounded-2xl bg-white flex flex-col justify-between">
+              <div>
+                <p className="font-black text-slate-800 mb-3">Penilaian Tempat / Vendor</p>
+                <div className="flex gap-2 mb-6">
+                  {[1,2,3,4,5].map(n => (
+                    <button type="button" key={n} onClick={() => setFormData({...formData, rating: n})} className={`p-1 transition-transform hover:scale-125 ${formData.rating >= n ? 'text-orange-500' : 'text-slate-200'}`}><Star className="w-8 h-8 fill-current"/></button>
+                  ))}
                 </div>
               </div>
-            </div>
-          ) : (
-            <div key={evt.id} className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between hover:shadow-lg hover:border-blue-200 transition-all">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <span className="px-3 py-1 rounded-full text-[10px] uppercase font-black tracking-wide bg-blue-50 text-blue-700 border border-blue-200">Menunggu Laporan</span>
-                  <h3 className="text-xl font-black text-slate-800 mt-4">{evt.sport_type}</h3>
-                  <p className="text-sm text-slate-500 font-medium mt-1 flex items-center"><MapPin className="w-4 h-4 mr-1 text-red-500" /> {evt.venue_name}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-black text-slate-800">{formatCurrency(calculateTotalBudget(evt.budget_items))}</p>
-                  <p className="text-xs text-slate-400 font-bold mt-1 uppercase tracking-wider">{new Date(evt.event_date).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
-                </div>
+              <div>
+                <label className="block text-sm font-black text-slate-800 mb-2">Catatan Pelaksanaan</label>
+                <textarea className="w-full p-4 border-2 border-slate-100 rounded-xl outline-none text-sm bg-slate-50 focus:border-blue-500 focus:bg-white transition-colors" rows="3" placeholder="Tulis rincian atau kesan pesan acara..." value={formData.notes} onChange={(e)=>setFormData({...formData, notes: e.target.value})}></textarea>
               </div>
-              <button onClick={() => openForm(evt)} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3.5 rounded-xl text-sm font-black shadow-md flex items-center justify-center transition-all hover:shadow-lg hover:-translate-y-0.5">
-                <Upload className="w-5 h-5 mr-2" /> Mulai Buat Laporan
-              </button>
             </div>
-          )
-        ))
-      )}
+          </div>
+
+          <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
+            <p className="font-black text-blue-900 mb-5 flex items-center"><Paperclip className="w-5 h-5 mr-2"/> Unggah Dokumen Bukti</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-4 rounded-xl shadow-sm">
+                <label className="block text-xs font-bold text-slate-600 mb-2">1. Nota / Invoice (Wajib)</label>
+                <input type="file" required accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'nota')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                {formData.files.nota && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {formData.files.nota.name}</p>}
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm">
+                <label className="block text-xs font-bold text-slate-600 mb-2">2. Foto Kegiatan (Wajib)</label>
+                <input type="file" required accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'foto')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                {formData.files.foto && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {formData.files.foto.name}</p>}
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm">
+                <label className="block text-xs font-bold text-slate-600 mb-2">3. Daftar Hadir (Opsional)</label>
+                <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'absensi')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                {formData.files.absensi && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {formData.files.absensi.name}</p>}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <button type="button" onClick={() => ctx.setView('dashboard')} className="px-8 py-4 bg-slate-100 font-black rounded-xl text-slate-600 hover:bg-slate-200 transition-colors">Batal</button>
+            <button type="submit" className="flex-grow bg-blue-900 hover:bg-blue-800 text-white font-black py-4 rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all text-lg">Kirim Laporan Akhir</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
 
 const AdminSettlementCard = ({ evt, ctx }: any) => {
-  const proposed = calculateTotalBudget(evt.budget_items);
   const [editCost, setEditCost] = useState(evt.report?.actual_cost || 0);
   const [editAttended, setEditAttended] = useState(evt.report?.attended || 0);
   const [adminNote, setAdminNote] = useState('');
 
-  const diff = editCost - proposed;
+  const prog = ctx.programs.find((p: any) => p.sport === evt.sport_type) || {};
+  const currentYm = evt.event_date.slice(0, 7);
+  const plafon = getProgramLimitForMonth(prog, currentYm);
+
+  const diff = editCost - plafon;
 
   const handleAction = async (newStatus: string) => {
     const updatedReport = { ...evt.report, actual_cost: editCost, attended: editAttended };
@@ -1148,11 +1036,11 @@ const AdminSettlementCard = ({ evt, ctx }: any) => {
       
       <div className="grid grid-cols-2 gap-3 mb-5">
         <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col justify-center text-center">
-          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Anggaran Awal</p>
-          <p className="font-bold text-slate-400 line-through text-sm">{formatCurrency(proposed)}</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Plafon Max (Total)</p>
+          <p className="font-bold text-slate-400 text-sm">{formatCurrency(plafon)}</p>
         </div>
         <div className={`p-3 rounded-xl border text-center flex flex-col justify-center ${diff > 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
-          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1 flex items-center justify-center">Realisasi Akhir <Edit3 className="w-3 h-3 ml-1 text-slate-400"/></p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1 flex items-center justify-center">Realisasi Akhir (Termasuk Admin) <Edit3 className="w-3 h-3 ml-1 text-slate-400"/></p>
           <input type="number" className="bg-transparent font-black text-slate-800 text-lg leading-none text-center w-full outline-none focus:border-b border-slate-300" value={editCost} onChange={(e) => setEditCost(Number(e.target.value))} title="Admin dapat mengedit nominal ini" />
         </div>
         <div className="col-span-2 bg-white p-3 rounded-xl border flex items-center justify-between shadow-sm">
@@ -1190,7 +1078,7 @@ const AdminSettlementCard = ({ evt, ctx }: any) => {
   );
 };
 
-// 4. Admin Approvals & Tracking
+// 3. Admin Approvals & Tracking
 const ViewAdminApprovals = ({ ctx }: any) => {
   const ongoingEvents = ctx.events.filter((e: any) => ['pending_approval', 'funded'].includes(e.status));
   const pendingSettlements = ctx.events.filter((e: any) => e.status === 'pending_settlement');
@@ -1209,9 +1097,19 @@ const ViewAdminApprovals = ({ ctx }: any) => {
   return (
     <div className="space-y-12 max-w-6xl mx-auto animate-in fade-in duration-500">
       <div>
-        <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center"><Activity className="mr-3 text-blue-600"/> 1. Pantauan Jadwal Berjalan & Persetujuan</h2>
+        <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center"><FileCheck className="mr-3 text-purple-600"/> 1. Validasi Laporan Masuk (Settlement Akhir)</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {ongoingEvents.length === 0 && <div className="col-span-2 bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center text-slate-400 font-bold">Tidak ada jadwal kegiatan yang sedang berjalan atau menunggu persetujuan.</div>}
+          {pendingSettlements.length === 0 && <div className="col-span-2 bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center text-slate-400 font-bold">Tidak ada laporan yang menunggu validasi.</div>}
+          {pendingSettlements.map((evt: any) => (
+             <AdminSettlementCard key={evt.id} evt={evt} ctx={ctx} />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center"><Activity className="mr-3 text-blue-600"/> 2. Pantauan Proposal Legacy / Menunggu Revisi</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {ongoingEvents.length === 0 && <div className="col-span-2 bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center text-slate-400 font-bold">Semua data aman. Tidak ada proposal atau status revisi.</div>}
           {ongoingEvents.map((evt: any) => {
             const pic = ctx.accounts.find((a: any) => a.id === evt.pic_id);
             const isLegacyPending = evt.status === 'pending_approval';
@@ -1253,8 +1151,8 @@ const ViewAdminApprovals = ({ ctx }: any) => {
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center">
                     <Activity className="w-6 h-6 text-blue-500 mr-3 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-blue-900">Kegiatan telah dijadwalkan secara otomatis.</p>
-                      <p className="text-xs text-blue-700 font-medium mt-0.5">Sistem sedang menunggu PIC melaksanakan kegiatan & mengunggah laporan akhir dokumen.</p>
+                      <p className="text-sm font-bold text-blue-900">Kegiatan butuh revisi oleh PIC.</p>
+                      <p className="text-xs text-blue-700 font-medium mt-0.5">Sistem sedang menunggu PIC melakukan pengajuan ulang laporan terkait di halaman mereka.</p>
                     </div>
                   </div>
                 )}
@@ -1263,21 +1161,11 @@ const ViewAdminApprovals = ({ ctx }: any) => {
           })}
         </div>
       </div>
-
-      <div>
-        <h2 className="text-2xl font-black text-slate-800 mb-6 flex items-center"><FileCheck className="mr-3 text-purple-600"/> 2. Validasi Laporan (Settlement Akhir)</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {pendingSettlements.length === 0 && <div className="col-span-2 bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center text-slate-400 font-bold">Tidak ada laporan yang menunggu validasi.</div>}
-          {pendingSettlements.map((evt: any) => (
-             <AdminSettlementCard key={evt.id} evt={evt} ctx={ctx} />
-          ))}
-        </div>
-      </div>
     </div>
   );
 };
 
-// 5. Database
+// 4. Database & Export
 const ViewDatabase = ({ ctx }: any) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMonth, setFilterMonth] = useState(''); 
@@ -1319,12 +1207,38 @@ const ViewDatabase = ({ ctx }: any) => {
         pic_id: selectedPic.id, sport_type: selectedPic.sport,
         event_date: new Date(newArchive.event_date).toISOString(), venue_name: newArchive.venue_name,
         status: 'completed',
-        report: { attended: Number(newArchive.attended), actual_cost: Number(newArchive.actual_cost), rating: 5, notes: 'Arsip histori ditambahkan secara manual oleh Admin.', files: {} },
+        report: { attended: Number(newArchive.attended), actual_cost: Number(newArchive.actual_cost), vendor_cost: Number(newArchive.actual_cost), rating: 5, notes: 'Arsip histori ditambahkan secara manual oleh Admin.', files: {} },
         budget_items: [{ desc: 'Realisasi Arsip Manual', qty: 1, unit: 'Lumpsum', price: Number(newArchive.actual_cost) }]
     };
     await ctx.addEvent(archiveEvent);
     setShowAddModal(false);
     ctx.showToast('Data arsip manual berhasil ditambahkan.', 'success');
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['ID_Arsip', 'Tanggal', 'PIC_Nama', 'Cabor_Program', 'Venue', 'Total_Peserta', 'Biaya_Vendor', 'Biaya_Admin', 'Total_Realisasi', 'Status_Akhir'];
+    const rows = displayEvents.map((e: any) => {
+      const picName = ctx.accounts.find((a: any) => a.id === e.pic_id)?.name || 'Admin / PIC Terhapus';
+      const dateStr = new Date(e.event_date).toLocaleDateString('id-ID');
+      const vendorCost = e.report?.vendor_cost || e.report?.actual_cost || calculateTotalBudget(e.budget_items);
+      const adminFee = e.report?.admin_fee || 0;
+      const totalCost = e.report?.actual_cost || vendorCost;
+      const statusLabel = getStatusDisplay(e.status).label;
+      return [
+        e.id, dateStr, picName, e.sport_type, e.venue_name, 
+        e.report?.attended || e.participants?.length || 0,
+        vendorCost, adminFee, totalCost, statusLabel
+      ].map(v => `"${v}"`).join(',');
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Export_Meratus_Happiness_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -1349,13 +1263,20 @@ const ViewDatabase = ({ ctx }: any) => {
             </select>
           </div>
           <button 
-            onClick={() => {
-              if (picAccounts.length > 0 && !newArchive.pic_id) setNewArchive(prev => ({ ...prev, pic_id: picAccounts[0].id }));
-              setShowAddModal(true);
-            }} 
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center transition-colors shadow-sm whitespace-nowrap">
-            <Plus className="w-4 h-4 mr-2" /> Tambah Arsip
+            onClick={handleExportCSV} 
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center transition-colors shadow-sm whitespace-nowrap">
+            <Download className="w-4 h-4 mr-2" /> Download CSV
           </button>
+          {ctx.user.role === ROLES.ADMIN && (
+            <button 
+              onClick={() => {
+                if (picAccounts.length > 0 && !newArchive.pic_id) setNewArchive(prev => ({ ...prev, pic_id: picAccounts[0].id }));
+                setShowAddModal(true);
+              }} 
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center transition-colors shadow-sm whitespace-nowrap">
+              <Plus className="w-4 h-4 mr-2" /> Tambah Arsip
+            </button>
+          )}
         </div>
       </div>
 
@@ -1403,17 +1324,20 @@ const ViewDatabase = ({ ctx }: any) => {
                 <th className="p-5 font-black text-slate-500 text-xs uppercase tracking-wider">Tanggal Aktivitas</th>
                 <th className="p-5 font-black text-slate-500 text-xs uppercase tracking-wider">Program & PIC</th>
                 <th className="p-5 font-black text-slate-500 text-xs uppercase tracking-wider text-center">Peserta</th>
-                <th className="p-5 font-black text-slate-500 text-xs uppercase tracking-wider text-right">Total Realisasi (Rp)</th>
+                <th className="p-5 font-black text-slate-500 text-xs uppercase tracking-wider text-right">Biaya (Vendor)</th>
+                <th className="p-5 font-black text-slate-500 text-xs uppercase tracking-wider text-right">Total Realisasi (Incl Admin)</th>
                 <th className="p-5 font-black text-slate-500 text-xs uppercase tracking-wider text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {displayEvents.length === 0 && (
-                <tr><td colSpan="5" className="p-10 text-center text-slate-400 font-bold">Tidak ada rekaman data yang ditemukan.</td></tr>
+                <tr><td colSpan="6" className="p-10 text-center text-slate-400 font-bold">Tidak ada rekaman data yang ditemukan.</td></tr>
               )}
               {displayEvents.map((evt: any) => {
                 const picName = ctx.accounts.find((a: any) => a.id === evt.pic_id)?.name || 'Manual Admin';
                 const actualCost = evt.report?.actual_cost || calculateTotalBudget(evt.budget_items || []);
+                const vendorCost = evt.report?.vendor_cost || actualCost;
+                
                 return (
                   <tr key={evt.id} className="hover:bg-blue-50/40 transition-colors group">
                     <td className="p-5 text-slate-700 text-sm font-bold">{new Date(evt.event_date).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</td>
@@ -1427,14 +1351,17 @@ const ViewDatabase = ({ ctx }: any) => {
                     <td className="p-5 text-center">
                       <span className="bg-slate-100 text-slate-700 font-black text-xs px-3 py-1.5 rounded-lg border border-slate-200 group-hover:bg-white transition-colors">{evt.report?.attended || evt.participants?.length || 0} Orang</span>
                     </td>
+                    <td className="p-5 font-black text-slate-500 text-md text-right">{formatCurrency(vendorCost)}</td>
                     <td className="p-5 font-black text-emerald-600 text-lg text-right">{formatCurrency(actualCost)}</td>
                     <td className="p-5 text-center whitespace-nowrap">
                       <button onClick={() => ctx.openModal(evt)} className="text-blue-700 hover:text-white bg-blue-50 hover:bg-blue-600 px-4 py-2 rounded-xl text-xs font-black inline-flex items-center transition-all shadow-sm">
                         <Eye className="w-4 h-4 mr-2" /> Detail
                       </button>
-                      <button onClick={() => handleDeleteEvent(evt.id)} className="text-red-600 hover:text-white bg-red-50 hover:bg-red-500 px-4 py-2 rounded-xl text-xs font-black inline-flex items-center transition-all shadow-sm ml-2">
-                        <Trash2 className="w-4 h-4 mr-2" /> Hapus
-                      </button>
+                      {ctx.user.role === ROLES.ADMIN && (
+                        <button onClick={() => handleDeleteEvent(evt.id)} className="text-red-600 hover:text-white bg-red-50 hover:bg-red-500 px-4 py-2 rounded-xl text-xs font-black inline-flex items-center transition-all shadow-sm ml-2">
+                          <Trash2 className="w-4 h-4 mr-2" /> Hapus
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )
@@ -1447,7 +1374,7 @@ const ViewDatabase = ({ ctx }: any) => {
   );
 };
 
-// 6. Master Data & Pengaturan Jadwal
+// 5. Master Data & Pengaturan Jadwal
 const ViewMasterData = ({ ctx }: any) => {
   const [tab, setTab] = useState('pic');
   const [newAcc, setNewAcc] = useState<any>({ 
@@ -1526,7 +1453,6 @@ const ViewMasterData = ({ ctx }: any) => {
     
     let hist = editProgData.budget_history ? [...editProgData.budget_history] : [];
     
-    // Jika data legacy yang belum punya histori, buatkan histori default dulu sebelum menumpuk yang baru
     if (hist.length === 0) {
       const oldProg = ctx.programs.find((p: any) => p.id === editingProgId);
       if (oldProg) {
@@ -1538,7 +1464,6 @@ const ViewMasterData = ({ ctx }: any) => {
       }
     }
 
-    // Timpa jika diedit untuk effective_month yang sama
     hist = hist.filter(h => h.effective_month !== effMonth);
     
     hist.push({
@@ -1994,7 +1919,6 @@ export default function App() {
     </>
   );
 
-  const picPendingReport = events.filter(e => e.pic_id === user.id && e.status === 'funded').length;
   const adminPendingAction = events.filter(e => ['pending_approval', 'pending_settlement'].includes(e.status)).length;
 
   const NavBtn = ({ id, label, icon, badge }: any) => (
@@ -2016,8 +1940,7 @@ export default function App() {
             <NavBtn id="dashboard" label="Dashboard" icon={<PieChart size={18} />} />
             {user.role === ROLES.PIC && (
               <>
-                <NavBtn id="new_proposal" label="Catat Kegiatan" icon={<Plus size={18} />} />
-                <NavBtn id="reporting" label="Laporan Akhir" icon={<Upload size={18} />} badge={picPendingReport} />
+                <NavBtn id="reporting" label="Buat Laporan Baru" icon={<Upload size={18} />} />
               </>
             )}
             {user.role === ROLES.ADMIN && (
@@ -2042,7 +1965,6 @@ export default function App() {
       
       <main className="p-4 md:p-8 relative">
         {view === 'dashboard' && <ViewDashboard ctx={ctx} />}
-        {view === 'new_proposal' && <ViewNewProposal ctx={ctx} />}
         {view === 'reporting' && <ViewReporting ctx={ctx} />}
         {view === 'approvals' && <ViewAdminApprovals ctx={ctx} />}
         {view === 'database' && <ViewDatabase ctx={ctx} />}

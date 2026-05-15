@@ -73,18 +73,18 @@ const INITIAL_PROGRAMS = [
 
 const INITIAL_EVENTS = [
   {
-    id: 'evt4', pic_id: 'a3', sport_type: 'Futsal', event_date: '2026-04-15T19:00', venue_name: 'Futsal Surabaya', status: 'completed',
-    objective: 'Latihan mingguan.', budget_items: [{ desc: 'Sewa Lapangan', qty: 1, unit: 'Sesi', price: 300000 }, { desc: 'Admin', qty: 1, unit: 'Trx', price: 6500 }],
+    id: 'evt4', pic_id: 'a3', sport_type: 'Futsal', event_date: '2026-04-15', venue_name: 'Futsal Surabaya', status: 'completed',
+    budget_items: [{ desc: 'Sewa Lapangan', qty: 1, unit: 'Sesi', price: 300000 }, { desc: 'Admin', qty: 1, unit: 'Trx', price: 6500 }],
     report: { actual_cost: 306500, attended: 12, notes: 'Berjalan lancar dan seru.', rating: 4, files: { nota: 'inv_futsal.pdf', foto: 'doc.jpg' } }
   },
   {
-    id: 'evt5', pic_id: 'a2', sport_type: 'Badminton', event_date: '2026-02-10T18:00', venue_name: 'Badminton Sudirman', status: 'completed',
-    objective: 'Persiapan turnamen.', budget_items: [{ desc: 'Sewa 2 Lapangan', qty: 1, unit: 'Sesi', price: 480000 }, { desc: 'Admin', qty: 1, unit: 'Trx', price: 6500 }],
+    id: 'evt5', pic_id: 'a2', sport_type: 'Badminton', event_date: '2026-02-10', venue_name: 'Badminton Sudirman', status: 'completed',
+    budget_items: [{ desc: 'Sewa 2 Lapangan', qty: 1, unit: 'Sesi', price: 480000 }, { desc: 'Admin', qty: 1, unit: 'Trx', price: 6500 }],
     report: { actual_cost: 486500, attended: 14, notes: 'Fasilitas sangat mendukung.', rating: 5, files: { nota: 'inv_badminton.pdf', foto: 'doc.jpg' } }
   },
   {
-    id: 'evt6', pic_id: 'a4', sport_type: 'Basket', event_date: '2026-01-20T18:00', venue_name: 'DDB Arena', status: 'completed',
-    objective: 'Latihan basket rutin.', budget_items: [{ desc: 'Sewa Lapangan Indoor', qty: 1, unit: 'Sesi', price: 706000 }, { desc: 'Admin', qty: 1, unit: 'Trx', price: 12500 }],
+    id: 'evt6', pic_id: 'a4', sport_type: 'Basket', event_date: '2026-01-20', venue_name: 'DDB Arena', status: 'completed',
+    budget_items: [{ desc: 'Sewa Lapangan Indoor', qty: 1, unit: 'Sesi', price: 706000 }, { desc: 'Admin', qty: 1, unit: 'Trx', price: 12500 }],
     report: { actual_cost: 718500, attended: 18, notes: 'Banyak peserta dari SBU.', rating: 4, files: { nota: 'inv_basket.pdf', foto: 'doc.jpg' } }
   }
 ];
@@ -293,11 +293,6 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
                  <p className="font-black text-blue-900 text-right">{event.report?.attended || event.participants?.length || 0} Orang</p>
               </div>
             </div>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-slate-800 mb-3 flex items-center"><Target className="w-5 h-5 mr-2 text-blue-600"/> Objektif Kegiatan</h3>
-            <p className="text-sm text-slate-600 bg-white p-4 rounded-xl border border-slate-200 leading-relaxed">{event.objective || '-'}</p>
           </div>
 
           <div>
@@ -770,7 +765,7 @@ const ViewDashboard = ({ ctx }: any) => {
                         <div>
                           <p className="font-black text-slate-800 text-sm leading-tight">{evt.sport_type}</p>
                           <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase truncate max-w-[150px]"><MapPin className="w-3 h-3 inline mr-1 -mt-0.5"/>{evt.venue_name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 mt-1"><Clock className="w-3 h-3 inline mr-1 -mt-0.5"/>{new Date(evt.event_date).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                          <p className="text-[10px] font-bold text-slate-400 mt-1"><Calendar className="w-3 h-3 inline mr-1 -mt-0.5"/>{new Date(evt.event_date).toLocaleDateString('id-ID', { dateStyle: 'medium' })}</p>
                         </div>
                         <p className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 whitespace-nowrap">
                           {formatCurrency(isPIC ? (evt.report?.vendor_cost || evt.report?.actual_cost || calculateTotalBudget(evt.budget_items)) : (evt.report?.actual_cost || calculateTotalBudget(evt.budget_items)))}
@@ -819,7 +814,7 @@ const ViewReporting = ({ ctx }: any) => {
   const activeRules = getActiveProgramRules(defaultProgram, currentYm);
 
   const [formData, setFormData] = useState<any>({ 
-    date: '', venue: '', objective: '', actual_cost: '', attended: '', notes: '', rating: 5, 
+    date: '', venue: '', actual_cost: '', attended: '', notes: '', rating: 5, 
     files: { nota: null, absensi: null, foto: null } 
   });
 
@@ -883,7 +878,6 @@ const ViewReporting = ({ ctx }: any) => {
       sport_type: ctx.user.sport,
       event_date: new Date(formData.date).toISOString(),
       venue_name: formData.venue,
-      objective: formData.objective,
       status: 'pending_settlement',
       participants: dummyParticipants,
       budget_items: [
@@ -920,17 +914,13 @@ const ViewReporting = ({ ctx }: any) => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Tanggal & Waktu Pelaksanaan</label>
-              <input type="datetime-local" required className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Tanggal Pelaksanaan</label>
+              <input type="date" required className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Venue Pelaksanaan</label>
               <input type="text" required placeholder="Cth: DDB Arena" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" value={formData.venue} onChange={(e) => setFormData({ ...formData, venue: e.target.value })} />
             </div>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Objektif Kegiatan</label>
-            <textarea required rows="2" className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 outline-none focus:border-blue-500 focus:bg-white transition-colors font-medium" placeholder="Contoh: Latihan rutin bulanan untuk menjaga kebugaran..." value={formData.objective} onChange={(e) => setFormData({ ...formData, objective: e.target.value })}></textarea>
           </div>
 
           <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col md:flex-row gap-6 items-center justify-between">
@@ -940,7 +930,6 @@ const ViewReporting = ({ ctx }: any) => {
                 <DollarSign className="absolute left-4 top-4 w-5 h-5 text-emerald-500" />
                 <input type="number" required className="w-full pl-12 pr-4 py-3 border-2 border-emerald-200 rounded-xl bg-white font-black text-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all" value={formData.actual_cost} onChange={(e) => setFormData({...formData, actual_cost: e.target.value})} placeholder="Masukkan Nominal Sesuai Nota" />
               </div>
-              <p className="text-xs text-slate-500 mt-2 font-medium">Hanya masukkan total nota vendor saja. Sistem otomatis menambahkan biaya admin transfer.</p>
             </div>
           </div>
 
@@ -1133,11 +1122,6 @@ const ViewAdminApprovals = ({ ctx }: any) => {
                   <Users className="w-4 h-4 mr-2 text-blue-600" />
                   <span className="text-xs font-black text-blue-900">{evt.participants?.length || 0} Rencana Peserta Terdaftar</span>
                 </div>
-
-                <div className="mb-5">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Objektif Kegiatan</p>
-                  <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed font-medium">{evt.objective}</p>
-                </div>
                 
                 {isLegacyPending ? (
                   <>
@@ -1295,7 +1279,7 @@ const ViewDatabase = ({ ctx }: any) => {
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Tanggal</label>
-              <input type="datetime-local" required className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500" value={newArchive.event_date} onChange={e => setNewArchive({...newArchive, event_date: e.target.value})} />
+              <input type="date" required className="w-full p-2.5 border-2 border-slate-100 rounded-lg text-sm outline-none focus:border-blue-500" value={newArchive.event_date} onChange={e => setNewArchive({...newArchive, event_date: e.target.value})} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Venue</label>

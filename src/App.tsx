@@ -22,11 +22,19 @@ if (typeof window !== 'undefined' && !document.getElementById('tailwind-cdn')) {
   document.head.appendChild(script);
 }
 
-// jsPDF Injection untuk konversi Image ke PDF Otomatis
+// jsPDF Injection
 if (typeof window !== 'undefined' && !document.getElementById('jspdf-cdn')) {
   const script = document.createElement('script');
   script.id = 'jspdf-cdn';
   script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  document.head.appendChild(script);
+}
+
+// pdf-lib Injection untuk merging PDF & Gambar Laporan Secara Native
+if (typeof window !== 'undefined' && !document.getElementById('pdflib-cdn')) {
+  const script = document.createElement('script');
+  script.id = 'pdflib-cdn';
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
   document.head.appendChild(script);
 }
 
@@ -318,9 +326,6 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
                   <div className={`p-6 rounded-2xl border-2 ${actualTotal > displayProposedTotal ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
                     <p className="text-xs font-bold text-slate-500 uppercase mb-1">Total Realisasi System</p>
                     <p className="text-3xl font-black text-slate-800">{formatCurrency(isPIC ? (event.report?.vendor_cost || actualTotal) : actualTotal)}</p>
-                    <p className="text-sm font-bold mt-2 text-slate-600">
-                      Selisih vs Target: <span className={actualTotal > displayProposedTotal ? 'text-red-600' : 'text-emerald-600'}>{formatCurrency(actualTotal - displayProposedTotal)}</span>
-                    </p>
                   </div>
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
@@ -928,7 +933,16 @@ const ViewReporting = ({ ctx }: any) => {
               <label className="block text-sm font-black mb-2 text-emerald-700">Total Biaya Sesuai Nota/Vendor</label>
               <div className="relative">
                 <DollarSign className="absolute left-4 top-4 w-5 h-5 text-emerald-500" />
-                <input type="number" required className="w-full pl-12 pr-4 py-3 border-2 border-emerald-200 rounded-xl bg-white font-black text-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all" value={formData.actual_cost} onChange={(e) => setFormData({...formData, actual_cost: e.target.value})} placeholder="Masukkan Nominal Sesuai Nota" />
+                <input 
+                  type="number" 
+                  required 
+                  className="w-full pl-12 pr-4 py-3 border-2 border-emerald-200 rounded-xl bg-white font-black text-xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all" 
+                  value={formData.actual_cost} 
+                  onChange={(e) => setFormData({...formData, actual_cost: e.target.value})} 
+                  placeholder="Masukkan Nominal Sesuai Nota"
+                  onWheel={(e) => e.target.blur()}
+                  onKeyDown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault(); }} 
+                />
               </div>
             </div>
           </div>
@@ -938,7 +952,16 @@ const ViewReporting = ({ ctx }: any) => {
               <p className="font-black text-slate-800 mb-4">Jumlah Kehadiran Aktual</p>
               <div className="relative">
                 <Users className="absolute left-4 top-4 w-6 h-6 text-blue-500" />
-                <input type="number" required min="7" className="w-full pl-14 pr-4 py-3 border-2 border-blue-200 rounded-xl bg-slate-50 font-black text-2xl outline-none focus:border-blue-500 transition-all" value={formData.attended} onChange={(e) => setFormData({...formData, attended: e.target.value})} placeholder="0" />
+                <input 
+                  type="number" 
+                  required min="7" 
+                  className="w-full pl-14 pr-4 py-3 border-2 border-blue-200 rounded-xl bg-slate-50 font-black text-2xl outline-none focus:border-blue-500 transition-all" 
+                  value={formData.attended} 
+                  onChange={(e) => setFormData({...formData, attended: e.target.value})} 
+                  placeholder="0"
+                  onWheel={(e) => e.target.blur()}
+                  onKeyDown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault(); }} 
+                />
               </div>
               <p className="text-xs text-slate-500 mt-4 font-medium leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">Ketikan angka total peserta yang hadir (Minimal 7 orang). <br/><span className="text-red-500 font-bold">Wajib melampirkan file dokumen absensi sebagai bukti otentik.</span></p>
             </div>
@@ -1030,12 +1053,28 @@ const AdminSettlementCard = ({ evt, ctx }: any) => {
         </div>
         <div className={`p-3 rounded-xl border text-center flex flex-col justify-center ${diff > 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1 flex items-center justify-center">Realisasi Akhir (Termasuk Admin) <Edit3 className="w-3 h-3 ml-1 text-slate-400"/></p>
-          <input type="number" className="bg-transparent font-black text-slate-800 text-lg leading-none text-center w-full outline-none focus:border-b border-slate-300" value={editCost} onChange={(e) => setEditCost(Number(e.target.value))} title="Admin dapat mengedit nominal ini" />
+          <input 
+            type="number" 
+            className="bg-transparent font-black text-slate-800 text-lg leading-none text-center w-full outline-none focus:border-b border-slate-300" 
+            value={editCost} 
+            onChange={(e) => setEditCost(Number(e.target.value))} 
+            title="Admin dapat mengedit nominal ini"
+            onWheel={(e) => e.target.blur()}
+            onKeyDown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault(); }} 
+          />
         </div>
         <div className="col-span-2 bg-white p-3 rounded-xl border flex items-center justify-between shadow-sm">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center">Total Kehadiran Aktual <Edit3 className="w-3 h-3 ml-2 text-slate-400"/></p>
           <div className="flex items-center">
-            <input type="number" className="font-black text-blue-900 text-xl w-16 text-right outline-none bg-blue-50 border border-blue-100 rounded-lg px-2 focus:border-blue-400 transition-colors" value={editAttended} onChange={(e) => setEditAttended(Number(e.target.value))} title="Admin dapat mengedit jumlah ini" />
+            <input 
+              type="number" 
+              className="font-black text-blue-900 text-xl w-16 text-right outline-none bg-blue-50 border border-blue-100 rounded-lg px-2 focus:border-blue-400 transition-colors" 
+              value={editAttended} 
+              onChange={(e) => setEditAttended(Number(e.target.value))} 
+              title="Admin dapat mengedit jumlah ini"
+              onWheel={(e) => e.target.blur()}
+              onKeyDown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault(); }} 
+            />
             <span className="text-xs text-slate-500 ml-2 font-bold uppercase">Orang</span>
           </div>
         </div>
@@ -1154,7 +1193,9 @@ const ViewDatabase = ({ ctx }: any) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMonth, setFilterMonth] = useState(''); 
   const [filterStatus, setFilterStatus] = useState('completed');
+  const [filterPic, setFilterPic] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
   const picAccounts = ctx.accounts.filter((a: any) => a.role === ROLES.PIC);
   const [newArchive, setNewArchive] = useState({ pic_id: '', event_date: '', venue_name: '', attended: 0, actual_cost: 0 });
@@ -1162,6 +1203,7 @@ const ViewDatabase = ({ ctx }: any) => {
   let displayEvents = ctx.events
     .filter((e: any) => {
       if (ctx.user.role !== ROLES.ADMIN && e.pic_id !== ctx.user.id) return false;
+      if (ctx.user.role === ROLES.ADMIN && filterPic !== 'all' && e.pic_id !== filterPic) return false;
       if (filterStatus === 'all') return true;
       if (filterStatus === 'ongoing') return ['funded', 'pending_settlement'].includes(e.status);
       return e.status === 'completed';
@@ -1225,15 +1267,154 @@ const ViewDatabase = ({ ctx }: any) => {
     document.body.removeChild(link);
   };
 
+  // --- PDF GENERATOR NATIVE (Merging Text, Image, & external PDF) ---
+  const handleDownloadPDF = async () => {
+    if (!window.PDFLib) {
+       ctx.showToast('Library PDF sedang dimuat, coba lagi sebentar.', 'error');
+       return;
+    }
+    const completedEvents = displayEvents.filter((e: any) => e.status === 'completed');
+    if (completedEvents.length === 0) {
+       ctx.showToast('Tidak ada data kegiatan valid (Selesai) untuk digenerate di filter ini.', 'error');
+       return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+       const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+       const pdfDoc = await PDFDocument.create();
+       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+       const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+       // 1. Cover / Summary Page
+       const page = pdfDoc.addPage([595.28, 841.89]);
+       page.drawText(`LAPORAN KONSOLIDASI MERATUS HAPPINESS`, { x: 50, y: 780, size: 16, font: fontBold, color: rgb(0.1, 0.3, 0.6) });
+       page.drawText(`Filter Bulan: ${filterMonth || 'Semua Waktu'}`, { x: 50, y: 750, size: 12, font });
+       const picLabel = filterPic === 'all' ? 'Semua PIC' : ctx.accounts.find((a: any) => a.id === filterPic)?.name || filterPic;
+       page.drawText(`Filter PIC: ${picLabel}`, { x: 50, y: 730, size: 12, font });
+       page.drawText(`Total Kegiatan: ${completedEvents.length}`, { x: 50, y: 710, size: 12, font });
+
+       let yOffset = 670;
+       page.drawText(`Ringkasan Daftar Kegiatan:`, { x: 50, y: yOffset, size: 12, font: fontBold });
+       yOffset -= 20;
+
+       for (const evt of completedEvents) {
+          const dateStr = new Date(evt.event_date).toLocaleDateString('id-ID');
+          const picName = ctx.accounts.find((a: any) => a.id === evt.pic_id)?.name || 'Admin';
+          const cost = evt.report?.actual_cost || calculateTotalBudget(evt.budget_items);
+
+          if(yOffset < 50) { /* Ignore pagination logic for summary on mock */ break; }
+          page.drawText(`- ${dateStr} | ${evt.sport_type} (${picName}) | Rp ${cost.toLocaleString('id-ID')}`, { x: 50, y: yOffset, size: 10, font });
+          yOffset -= 15;
+       }
+
+       // 2. Iterate each event & merge documents
+       for (const evt of completedEvents) {
+          // Event Title Separator Page
+          const evPage = pdfDoc.addPage([595.28, 841.89]);
+          const dateStr = new Date(evt.event_date).toLocaleDateString('id-ID', { dateStyle: 'full' });
+          const picName = ctx.accounts.find((a: any) => a.id === evt.pic_id)?.name || 'Admin';
+          const cost = evt.report?.actual_cost || calculateTotalBudget(evt.budget_items);
+
+          evPage.drawText(`RINCIAN DOKUMEN KEGIATAN`, { x: 50, y: 780, size: 16, font: fontBold, color: rgb(0.1, 0.5, 0.2) });
+          evPage.drawText(`Cabang Olahraga : ${evt.sport_type}`, { x: 50, y: 740, size: 12, font: fontBold });
+          evPage.drawText(`Nama PIC        : ${picName}`, { x: 50, y: 720, size: 12, font });
+          evPage.drawText(`Tanggal         : ${dateStr}`, { x: 50, y: 700, size: 12, font });
+          evPage.drawText(`Venue           : ${evt.venue_name}`, { x: 50, y: 680, size: 12, font });
+          evPage.drawText(`Peserta Hadir   : ${evt.report?.attended || 0} Orang`, { x: 50, y: 660, size: 12, font });
+          evPage.drawText(`Total Realisasi : Rp ${cost.toLocaleString('id-ID')}`, { x: 50, y: 640, size: 12, font });
+
+          const notes = evt.report?.notes || '-';
+          evPage.drawText(`Catatan:`, { x: 50, y: 600, size: 12, font: fontBold });
+          evPage.drawText(notes.substring(0, 100) + (notes.length > 100 ? '...' : ''), { x: 50, y: 580, size: 12, font });
+
+          // Attachments
+          const files = evt.report?.files;
+          if (files) {
+             for (const fType of ['nota', 'foto', 'absensi']) {
+                const fileObj = files[fType];
+                // Skip if doesn't exist or is legacy mock string
+                if (!fileObj || typeof fileObj === 'string') continue;
+
+                try {
+                   const base64Data = fileObj.data.split(';base64,').pop();
+                   const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+
+                   if (fileObj.type === 'application/pdf') {
+                      const extPdf = await PDFDocument.load(bytes);
+                      const copiedPages = await pdfDoc.copyPages(extPdf, extPdf.getPageIndices());
+                      copiedPages.forEach((p) => {
+                         const newP = pdfDoc.addPage(p);
+                         newP.drawText(`Lampiran ${fType.toUpperCase()} - ${evt.sport_type}`, { x: 10, y: 10, size: 10, font, color: rgb(1,0,0) });
+                      });
+                   } else if (fileObj.type.startsWith('image/')) {
+                      let img;
+                      if (fileObj.type === 'image/jpeg' || fileObj.type === 'image/jpg') {
+                         img = await pdfDoc.embedJpg(bytes);
+                      } else if (fileObj.type === 'image/png') {
+                         img = await pdfDoc.embedPng(bytes);
+                      }
+
+                      if (img) {
+                         const imgPage = pdfDoc.addPage([595.28, 841.89]);
+                         imgPage.drawText(`LAMPIRAN: ${fType.toUpperCase()} - ${evt.sport_type}`, { x: 50, y: 800, size: 14, font: fontBold });
+
+                         const { width, height } = img.scaleToFit(495.28, 700);
+                         imgPage.drawImage(img, {
+                            x: 50 + (495.28 - width) / 2,
+                            y: 400 - height / 2 + 30,
+                            width,
+                            height
+                         });
+                      }
+                   }
+                } catch(err) {
+                   console.error(`Failed merging ${fType}`, err);
+                }
+             }
+          }
+       }
+
+       const pdfBytes = await pdfDoc.save();
+       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+       const url = window.URL.createObjectURL(blob);
+       const link = document.createElement('a');
+       link.href = url;
+       link.download = `Laporan_Bulanan_${filterPic}_${filterMonth || 'All'}.pdf`;
+       document.body.appendChild(link);
+       link.click();
+       link.remove();
+       window.URL.revokeObjectURL(url);
+       ctx.showToast('Laporan PDF berhasil disusun dan diunduh!', 'success');
+    } catch(err) {
+       console.error(err);
+       ctx.showToast('Terjadi kesalahan saat merakit file PDF.', 'error');
+    } finally {
+       setIsGeneratingPdf(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
         <h2 className="text-3xl font-black text-slate-800 flex items-center"><Database className="mr-3 text-blue-600 w-8 h-8" /> Arsip Database Program</h2>
-        <div className="flex flex-wrap w-full md:w-auto gap-3">
+        <div className="flex flex-wrap w-full xl:w-auto gap-3">
           <div className="relative flex-grow md:w-48">
             <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
             <input type="text" placeholder="Cari program / venue..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500" />
           </div>
+          
+          {/* PIC Filter Dropdown - Only for Admin */}
+          {ctx.user.role === ROLES.ADMIN && (
+            <div className="relative flex-grow md:w-48">
+              <Users className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+              <select value={filterPic} onChange={(e) => setFilterPic(e.target.value)} className="w-full pl-9 pr-8 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white appearance-none cursor-pointer">
+                <option value="all">Semua PIC</option>
+                {picAccounts.map((pic: any) => <option key={pic.id} value={pic.id}>{pic.sport} ({pic.name})</option>)}
+              </select>
+            </div>
+          )}
+
           <div className="relative">
             <Filter className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
             <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="pl-9 pr-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white" />
@@ -1246,11 +1427,24 @@ const ViewDatabase = ({ ctx }: any) => {
               <option value="all">Semua Status</option>
             </select>
           </div>
+          
           <button 
             onClick={handleExportCSV} 
             className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center transition-colors shadow-sm whitespace-nowrap">
-            <Download className="w-4 h-4 mr-2" /> Download CSV
+            <Download className="w-4 h-4 mr-2" /> Data CSV
           </button>
+
+          {/* New PDF Report Button for Admin */}
+          {ctx.user.role === ROLES.ADMIN && (
+            <button 
+              onClick={handleDownloadPDF}
+              disabled={isGeneratingPdf}
+              className={`bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center transition-colors shadow-sm whitespace-nowrap ${isGeneratingPdf ? 'opacity-75 cursor-not-allowed' : ''}`}>
+              {isGeneratingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+              {isGeneratingPdf ? 'Merakit Laporan...' : 'Download PDF Lengkap'}
+            </button>
+          )}
+
           {ctx.user.role === ROLES.ADMIN && (
             <button 
               onClick={() => {

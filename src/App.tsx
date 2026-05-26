@@ -436,7 +436,7 @@ const LoginScreen = ({ ctx }: any) => {
             <label className="block text-sm font-extrabold text-slate-700 mb-2">Password</label>
             <div className="relative">
               <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-12 pr-4 py-3.5 border-2 border-slate-200 rounded-xl focus:ring-0 focus:border-blue-600 outline-none transition-colors font-semibold" placeholder="••••••••" />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-12 pr-4 py-3.5 border-2 border-slate-200 rounded-xl focus:ring-0 focus:border-blue-600 outline-none transition-colors font-semibold" placeholder="ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢" />
             </div>
           </div>
           <button type="submit" className="w-full bg-blue-800 hover:bg-blue-900 text-white font-black py-4 rounded-xl mt-8 shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all flex justify-center items-center">
@@ -1191,11 +1191,20 @@ const ViewAdminApprovals = ({ ctx }: any) => {
 // 4. Database & Export
 const ViewDatabase = ({ ctx }: any) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterMonth, setFilterMonth] = useState(''); 
+  const [reportPeriodType, setReportPeriodType] = useState('Bulanan');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [reportDate, setReportDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('completed');
   const [filterPic, setFilterPic] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [transactionPdfUrl, setTransactionPdfUrl] = useState('');
+  const [transactionPdfFile, setTransactionPdfFile] = useState<any>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [totalBudget, setTotalBudget] = useState<number | ''>('');
+  const [masterBudget, setMasterBudget] = useState<number | ''>('');
+  const [deductedEventIds, setDeductedEventIds] = useState<Set<string>>(new Set());
   
   const picAccounts = ctx.accounts.filter((a: any) => a.role === ROLES.PIC);
   const [newArchive, setNewArchive] = useState({ pic_id: '', event_date: '', venue_name: '', attended: 0, actual_cost: 0 });
@@ -1210,11 +1219,113 @@ const ViewDatabase = ({ ctx }: any) => {
     })
     .sort((a: any, b: any) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
 
-  if (filterMonth) displayEvents = displayEvents.filter((e: any) => e.event_date.startsWith(filterMonth));
+  if (reportPeriodType === 'Bulanan' && filterMonth) {
+    displayEvents = displayEvents.filter((e: any) => e.event_date.startsWith(filterMonth));
+  } else if (reportPeriodType !== 'Bulanan' && reportDate) {
+    const start = new Date(reportDate);
+    const end = new Date(reportDate);
+    if (reportPeriodType === 'Mingguan') end.setDate(end.getDate() + 7);
+    if (reportPeriodType === 'Bi-Weekly') end.setDate(end.getDate() + 14);
+    
+    displayEvents = displayEvents.filter((e: any) => {
+      const d = new Date(e.event_date);
+      return d >= start && d < end;
+    });
+  }
+
   if (searchTerm) {
     const lowerTerm = searchTerm.toLowerCase();
     displayEvents = displayEvents.filter((e: any) => e.sport_type.toLowerCase().includes(lowerTerm) || e.venue_name.toLowerCase().includes(lowerTerm));
   }
+  
+  // Effect to auto-select events when display changes (if desired) or reset
+  useEffect(() => {
+     setSelectedIds(new Set(displayEvents.filter((e:any) => e.status === 'completed').map((e:any) => e.id)));
+  }, [filterMonth, reportDate, reportPeriodType, filterPic, filterStatus, searchTerm, ctx.events]);
+
+  const handleSelectAll = (e: any) => {
+     if (e.target.checked) {
+        setSelectedIds(new Set(displayEvents.filter((ev:any) => ev.status === 'completed').map((ev:any) => ev.id)));
+     } else {
+        setSelectedIds(new Set());
+     }
+  };
+
+  const toggleSelect = (id: string) => {
+     const newSet = new Set(selectedIds);
+     if (newSet.has(id)) newSet.delete(id);
+     else newSet.add(id);
+     setSelectedIds(newSet);
+  };
+
+  let currentYear = '';
+  let currentMonth = '';
+  
+  if (reportPeriodType === 'Bulanan' && filterMonth) {
+     const parts = filterMonth.split('-');
+     currentYear = parts[0];
+     currentMonth = parts[1];
+  } else if (reportDate) {
+     const d = new Date(reportDate);
+     currentYear = d.getFullYear().toString();
+     currentMonth = String(d.getMonth() + 1).padStart(2, '0');
+  } else {
+     const d = new Date();
+     currentYear = d.getFullYear().toString();
+     currentMonth = String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  const yyyymm = `${currentYear}-${currentMonth}`;
+  const availableForDeduction = ctx.events.filter((e: any) => {
+      if (e.status !== 'completed') return false;
+      if (ctx.user.role !== ROLES.ADMIN && e.pic_id !== ctx.user.id) return false;
+      if (ctx.user.role === ROLES.ADMIN && filterPic !== 'all' && e.pic_id !== filterPic) return false;
+      if (!e.event_date.startsWith(yyyymm)) return false;
+      return !selectedIds.has(e.id);
+  });
+  
+  useEffect(() => {
+     if (masterBudget !== '') {
+        const totalDeducted = availableForDeduction
+           .filter((e:any) => deductedEventIds.has(e.id))
+           .reduce((sum: number, e:any) => sum + (e.report?.actual_cost || calculateTotalBudget(e.budget_items || [])), 0);
+        setTotalBudget((Number(masterBudget) || 0) - totalDeducted);
+     }
+  }, [masterBudget, deductedEventIds, availableForDeduction]);
+
+  useEffect(() => {
+     let year = '';
+     let month = '';
+     
+     if (reportPeriodType === 'Bulanan' && filterMonth) {
+        const parts = filterMonth.split('-');
+        year = parts[0];
+        month = parts[1];
+     } else if (reportDate) {
+        const d = new Date(reportDate);
+        year = d.getFullYear().toString();
+        month = String(d.getMonth() + 1).padStart(2, '0');
+     } else {
+        const d = new Date();
+        year = d.getFullYear().toString();
+        month = String(d.getMonth() + 1).padStart(2, '0');
+     }
+
+     const programsToSum = filterPic === 'all' 
+         ? ctx.programs 
+         : ctx.programs.filter((p: any) => p.sport === ctx.accounts.find((a: any)=>a.id===filterPic)?.sport);
+         
+     const autoTotal = programsToSum.reduce((acc: any, p: any) => acc + (typeof window.getTotalPlafonForPeriod === 'function' ? window.getTotalPlafonForPeriod(p, 'month', month, year) : (typeof getTotalPlafonForPeriod === 'function' ? getTotalPlafonForPeriod(p, 'month', month, year) : 0)), 0);
+     
+     setMasterBudget(autoTotal || '');
+  }, [reportPeriodType, filterMonth, reportDate, filterPic, ctx.programs, ctx.accounts]);
+
+  const toggleDeduction = (id: string) => {
+     const newSet = new Set(deductedEventIds);
+     if (newSet.has(id)) newSet.delete(id);
+     else newSet.add(id);
+     setDeductedEventIds(newSet);
+  };
 
   const handleDeleteEvent = async (id: string) => {
     if(window.confirm('Yakin ingin menghapus arsip data ini secara permanen? Hal ini akan memengaruhi metrik dasbor.')) {
@@ -1273,67 +1384,126 @@ const ViewDatabase = ({ ctx }: any) => {
        ctx.showToast('Library PDF sedang dimuat, coba lagi sebentar.', 'error');
        return;
     }
-    const completedEvents = displayEvents.filter((e: any) => e.status === 'completed');
+    const completedEvents = [...displayEvents.filter((e: any) => e.status === 'completed' && selectedIds.has(e.id))]
+         .sort((a: any, b: any) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+    
     if (completedEvents.length === 0) {
-       ctx.showToast('Tidak ada data kegiatan valid (Selesai) untuk digenerate di filter ini.', 'error');
+       ctx.showToast('Pilih setidaknya 1 kegiatan (Checklist) yang berstatus Selesai.', 'error');
        return;
     }
 
     setIsGeneratingPdf(true);
+    setShowDownloadModal(false);
     try {
        const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
        const pdfDoc = await PDFDocument.create();
        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
        const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-       // 1. Cover / Summary Page
-       const page = pdfDoc.addPage([595.28, 841.89]);
-       page.drawText(`LAPORAN KONSOLIDASI MERATUS HAPPINESS`, { x: 50, y: 780, size: 16, font: fontBold, color: rgb(0.1, 0.3, 0.6) });
-       page.drawText(`Filter Bulan: ${filterMonth || 'Semua Waktu'}`, { x: 50, y: 750, size: 12, font });
-       const picLabel = filterPic === 'all' ? 'Semua PIC' : ctx.accounts.find((a: any) => a.id === filterPic)?.name || filterPic;
-       page.drawText(`Filter PIC: ${picLabel}`, { x: 50, y: 730, size: 12, font });
-       page.drawText(`Total Kegiatan: ${completedEvents.length}`, { x: 50, y: 710, size: 12, font });
+       // 1. Cover / Summary Page (Budget Realisasi)
+       const page = pdfDoc.addPage([841.89, 595.28]); // Landscape A4 for table
+       const { width, height } = page.getSize();
+       
+       page.drawText(`MERATUS`, { x: 50, y: height - 50, size: 14, font: fontBold, color: rgb(0, 0, 0.5) });
+       page.drawText(`MERATUS ACADEMY`, { x: width - 200, y: height - 50, size: 14, font: fontBold, color: rgb(0, 0, 0.5) });
+       
+       page.drawText(`Budget Realisasi`, { x: width / 2 - 60, y: height - 70, size: 16, font: fontBold, color: rgb(0, 0, 0) });
+       page.drawText(`Happiness Program Meratus Group`, { x: width / 2 - 120, y: height - 90, size: 14, font: fontBold, color: rgb(0, 0, 0) });
+       
+       const downloadDateStr = new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'});
+       page.drawText(`Tanggal Diunduh: ${downloadDateStr}`, { x: 50, y: height - 110, size: 10, font });
+       
+       // Draw Table Headers (Yellow)
+       page.drawRectangle({ x: 50, y: height - 140, width: width - 100, height: 25, color: rgb(1, 0.8, 0.2) });
+       // Border for header
+       page.drawRectangle({ x: 50, y: height - 140, width: width - 100, height: 25, borderColor: rgb(0,0,0), borderWidth: 1 });
+       
+       page.drawText(`Jenis Kegiatan`, { x: 60, y: height - 133, size: 10, font: fontBold });
+       page.drawText(`Tanggal Pelaksanaan`, { x: 200, y: height - 133, size: 10, font: fontBold });
+       page.drawText(`Keterangan`, { x: 350, y: height - 133, size: 10, font: fontBold });
+       page.drawText(`Amount`, { x: 550, y: height - 133, size: 10, font: fontBold });
+       page.drawText(`Balance`, { x: 680, y: height - 133, size: 10, font: fontBold });
 
-       let yOffset = 670;
-       page.drawText(`Ringkasan Daftar Kegiatan:`, { x: 50, y: yOffset, size: 12, font: fontBold });
-       yOffset -= 20;
+       // Draw vertical lines for header
+       page.drawLine({ start: { x: 190, y: height - 115 }, end: { x: 190, y: height - 140 }, thickness: 1, color: rgb(0,0,0) });
+       page.drawLine({ start: { x: 340, y: height - 115 }, end: { x: 340, y: height - 140 }, thickness: 1, color: rgb(0,0,0) });
+       page.drawLine({ start: { x: 540, y: height - 115 }, end: { x: 540, y: height - 140 }, thickness: 1, color: rgb(0,0,0) });
+       page.drawLine({ start: { x: 670, y: height - 115 }, end: { x: 670, y: height - 140 }, thickness: 1, color: rgb(0,0,0) });
+
+       let currentY = height - 165;
+       let totalAmount = 0;
+       let currentBalance = Number(totalBudget) || 0;
 
        for (const evt of completedEvents) {
           const dateStr = new Date(evt.event_date).toLocaleDateString('id-ID');
-          const picName = ctx.accounts.find((a: any) => a.id === evt.pic_id)?.name || 'Admin';
           const cost = evt.report?.actual_cost || calculateTotalBudget(evt.budget_items);
+          totalAmount += cost;
+          currentBalance -= cost;
 
-          if(yOffset < 50) { /* Ignore pagination logic for summary on mock */ break; }
-          page.drawText(`- ${dateStr} | ${evt.sport_type} (${picName}) | Rp ${cost.toLocaleString('id-ID')}`, { x: 50, y: yOffset, size: 10, font });
-          yOffset -= 15;
+          if(currentY < 150) { 
+             break; 
+          }
+          
+          // Row background
+          page.drawRectangle({ x: 50, y: currentY, width: width - 100, height: 25, borderColor: rgb(0.8,0.8,0.8), borderWidth: 1 });
+          
+          page.drawText(evt.sport_type, { x: 60, y: currentY + 7, size: 9, font });
+          page.drawText(dateStr, { x: 200, y: currentY + 7, size: 9, font });
+          page.drawText('Biaya Pelaksanaan', { x: 350, y: currentY + 7, size: 9, font });
+          page.drawText(`IDR ${cost.toLocaleString('id-ID')}.00`, { x: 550, y: currentY + 7, size: 9, font });
+          page.drawText(`IDR ${currentBalance.toLocaleString('id-ID')}.00`, { x: 680, y: currentY + 7, size: 9, font });
+          
+          // Row vertical dividers
+          page.drawLine({ start: { x: 190, y: currentY }, end: { x: 190, y: currentY + 25 }, thickness: 1, color: rgb(0.8,0.8,0.8) });
+          page.drawLine({ start: { x: 340, y: currentY }, end: { x: 340, y: currentY + 25 }, thickness: 1, color: rgb(0.8,0.8,0.8) });
+          page.drawLine({ start: { x: 540, y: currentY }, end: { x: 540, y: currentY + 25 }, thickness: 1, color: rgb(0.8,0.8,0.8) });
+          page.drawLine({ start: { x: 670, y: currentY }, end: { x: 670, y: currentY + 25 }, thickness: 1, color: rgb(0.8,0.8,0.8) });
+
+          currentY -= 25;
+       }
+       
+       // Footer row
+       page.drawRectangle({ x: 50, y: currentY, width: width - 100, height: 25, color: rgb(1, 0.8, 0.2), borderColor: rgb(0,0,0), borderWidth: 1 });
+       page.drawText(`Total Realisasi`, { x: 60, y: currentY + 7, size: 10, font: fontBold });
+       page.drawText(`IDR ${totalAmount.toLocaleString('id-ID')}.00`, { x: 550, y: currentY + 7, size: 10, font: fontBold });
+       page.drawText(`IDR ${currentBalance.toLocaleString('id-ID')}.00`, { x: 680, y: currentY + 7, size: 10, font: fontBold });
+       
+       page.drawLine({ start: { x: 540, y: currentY }, end: { x: 540, y: currentY + 25 }, thickness: 1, color: rgb(0,0,0) });
+       page.drawLine({ start: { x: 670, y: currentY }, end: { x: 670, y: currentY + 25 }, thickness: 1, color: rgb(0,0,0) });
+       
+       currentY -= 30;
+       page.drawText(`*Note: ${reportPeriodType} budget realization`, { x: 50, y: currentY, size: 9, font });
+       
+       currentY -= 40;
+       page.drawText(`Prepared By,`, { x: 100, y: currentY, size: 10, font });
+       page.drawText(`Approved By,`, { x: width - 200, y: currentY, size: 10, font });
+       
+       currentY -= 50;
+       page.drawText(`(................................)`, { x: 90, y: currentY, size: 10, font });
+       page.drawText(`(................................)`, { x: width - 210, y: currentY, size: 10, font });
+
+       // 2. Transaction Status PDF Merge
+       if (transactionPdfFile) {
+          try {
+             const base64Data = transactionPdfUrl.split(';base64,').pop();
+             const bytes = Uint8Array.from(atob(base64Data as string), c => c.charCodeAt(0));
+             const extPdf = await PDFDocument.load(bytes);
+             const copiedPages = await pdfDoc.copyPages(extPdf, extPdf.getPageIndices());
+             copiedPages.forEach((p) => {
+                const newP = pdfDoc.addPage(p);
+                newP.drawText(`Lampiran Transaction Status`, { x: 10, y: 10, size: 10, font, color: rgb(1,0,0) });
+             });
+          } catch (err) {
+             console.error('Failed merging Transaction Status PDF', err);
+          }
        }
 
-       // 2. Iterate each event & merge documents
+       // 3. Iterate each event & merge documents
        for (const evt of completedEvents) {
-          // Event Title Separator Page
-          const evPage = pdfDoc.addPage([595.28, 841.89]);
-          const dateStr = new Date(evt.event_date).toLocaleDateString('id-ID', { dateStyle: 'full' });
-          const picName = ctx.accounts.find((a: any) => a.id === evt.pic_id)?.name || 'Admin';
-          const cost = evt.report?.actual_cost || calculateTotalBudget(evt.budget_items);
-
-          evPage.drawText(`RINCIAN DOKUMEN KEGIATAN`, { x: 50, y: 780, size: 16, font: fontBold, color: rgb(0.1, 0.5, 0.2) });
-          evPage.drawText(`Cabang Olahraga : ${evt.sport_type}`, { x: 50, y: 740, size: 12, font: fontBold });
-          evPage.drawText(`Nama PIC        : ${picName}`, { x: 50, y: 720, size: 12, font });
-          evPage.drawText(`Tanggal         : ${dateStr}`, { x: 50, y: 700, size: 12, font });
-          evPage.drawText(`Venue           : ${evt.venue_name}`, { x: 50, y: 680, size: 12, font });
-          evPage.drawText(`Peserta Hadir   : ${evt.report?.attended || 0} Orang`, { x: 50, y: 660, size: 12, font });
-          evPage.drawText(`Total Realisasi : Rp ${cost.toLocaleString('id-ID')}`, { x: 50, y: 640, size: 12, font });
-
-          const notes = evt.report?.notes || '-';
-          evPage.drawText(`Catatan:`, { x: 50, y: 600, size: 12, font: fontBold });
-          evPage.drawText(notes.substring(0, 100) + (notes.length > 100 ? '...' : ''), { x: 50, y: 580, size: 12, font });
-
-          // Attachments
           const files = evt.report?.files;
           if (files) {
              for (const fType of ['nota', 'foto', 'absensi']) {
                 const fileObj = files[fType];
-                // Skip if doesn't exist or is legacy mock string
                 if (!fileObj || typeof fileObj === 'string') continue;
 
                 try {
@@ -1356,15 +1526,15 @@ const ViewDatabase = ({ ctx }: any) => {
                       }
 
                       if (img) {
-                         const imgPage = pdfDoc.addPage([595.28, 841.89]);
+                         const imgPage = pdfDoc.addPage([595.28, 841.89]); // Portrait
                          imgPage.drawText(`LAMPIRAN: ${fType.toUpperCase()} - ${evt.sport_type}`, { x: 50, y: 800, size: 14, font: fontBold });
 
-                         const { width, height } = img.scaleToFit(495.28, 700);
+                         const { width: iW, height: iH } = img.scaleToFit(495.28, 700);
                          imgPage.drawImage(img, {
-                            x: 50 + (495.28 - width) / 2,
-                            y: 400 - height / 2 + 30,
-                            width,
-                            height
+                            x: 50 + (495.28 - iW) / 2,
+                            y: 400 - iH / 2 + 30,
+                            width: iW,
+                            height: iH
                          });
                       }
                    }
@@ -1380,7 +1550,7 @@ const ViewDatabase = ({ ctx }: any) => {
        const url = window.URL.createObjectURL(blob);
        const link = document.createElement('a');
        link.href = url;
-       link.download = `Laporan_Bulanan_${filterPic}_${filterMonth || 'All'}.pdf`;
+       link.download = `Laporan_${reportPeriodType}_${filterPic}_${new Date().getTime()}.pdf`;
        document.body.appendChild(link);
        link.click();
        link.remove();
@@ -1391,6 +1561,27 @@ const ViewDatabase = ({ ctx }: any) => {
        ctx.showToast('Terjadi kesalahan saat merakit file PDF.', 'error');
     } finally {
        setIsGeneratingPdf(false);
+       setTransactionPdfFile(null);
+       setTransactionPdfUrl('');
+       setTotalBudget('');
+       setMasterBudget('');
+       setDeductedEventIds(new Set());
+    }
+  };
+
+  const handleTransactionPdfUpload = (e: any) => {
+    const file = e.target.files[0];
+    if(file) {
+      if(file.type !== 'application/pdf') {
+         ctx.showToast('Hanya file PDF yang diizinkan untuk status transaksi!', 'error');
+         return;
+      }
+      setTransactionPdfFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+         setTransactionPdfUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -1415,10 +1606,20 @@ const ViewDatabase = ({ ctx }: any) => {
             </div>
           )}
 
-          <div className="relative">
-            <Filter className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-            <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="pl-9 pr-3 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white" />
+          <div className="relative flex items-center">
+            <Filter className="absolute left-3 top-3 w-4 h-4 text-slate-400 z-10" />
+            <select value={reportPeriodType} onChange={(e) => setReportPeriodType(e.target.value)} className="pl-9 pr-8 py-2.5 border-2 border-slate-200 text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white appearance-none cursor-pointer border-r-0 rounded-l-xl rounded-r-none">
+              <option value="Mingguan">Mingguan</option>
+              <option value="Bi-Weekly">Bi-Weekly</option>
+              <option value="Bulanan">Bulanan</option>
+            </select>
+            {reportPeriodType === 'Bulanan' ? (
+              <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="pr-3 py-2.5 border-2 border-slate-200 rounded-r-xl rounded-l-none text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white" />
+            ) : (
+              <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} className="pr-3 py-2.5 border-2 border-slate-200 rounded-r-xl rounded-l-none text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white" />
+            )}
           </div>
+
           <div className="relative">
             <Activity className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="pl-9 pr-8 py-2.5 border-2 border-slate-200 rounded-xl text-sm font-semibold outline-none focus:border-blue-500 text-slate-700 bg-white appearance-none cursor-pointer">
@@ -1437,7 +1638,7 @@ const ViewDatabase = ({ ctx }: any) => {
           {/* New PDF Report Button for Admin */}
           {ctx.user.role === ROLES.ADMIN && (
             <button 
-              onClick={handleDownloadPDF}
+              onClick={() => setShowDownloadModal(true)}
               disabled={isGeneratingPdf}
               className={`bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-black flex items-center transition-colors shadow-sm whitespace-nowrap ${isGeneratingPdf ? 'opacity-75 cursor-not-allowed' : ''}`}>
               {isGeneratingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
@@ -1457,6 +1658,59 @@ const ViewDatabase = ({ ctx }: any) => {
           )}
         </div>
       </div>
+
+      {showDownloadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6">
+               <h2 className="text-2xl font-black text-slate-800 flex items-center"><FileText className="mr-3 text-purple-600"/> Konfirmasi Laporan</h2>
+               <button onClick={() => setShowDownloadModal(false)} className="text-slate-400 hover:text-red-500 transition-colors"><XCircle className="w-6 h-6"/></button>
+            </div>
+            <div className="bg-purple-50 border border-purple-100 rounded-2xl p-5 mb-5 text-sm text-purple-900 leading-relaxed font-medium">
+               <p className="mb-2 font-bold">Laporan {reportPeriodType} akan diunduh dengan filter:</p>
+               <ul className="list-disc pl-5 mb-4">
+                  <li>PIC: {filterPic === 'all' ? 'Semua PIC' : ctx.accounts.find((a: any) => a.id === filterPic)?.name}</li>
+                  <li>Periode: {reportPeriodType === 'Bulanan' ? filterMonth || 'Semua Waktu' : reportDate || 'Belum Diatur'}</li>
+                  <li>Total Kegiatan Dipilih: {selectedIds.size}</li>
+               </ul>
+
+               {/* Fitur Auto Kalkulasi Master Budget */}
+               <label className="block text-sm font-bold text-slate-600 mb-2 mt-4">Total Plafon Budget Bulan Ini (Rp)</label>
+               <input type="number" placeholder="Contoh: 50000000" value={masterBudget} onChange={(e) => setMasterBudget(Number(e.target.value) || '')} className="w-full p-2.5 border-2 border-slate-200 rounded-lg text-sm font-semibold outline-none focus:border-blue-500 mb-4 bg-white" />
+
+               {masterBudget !== '' && availableForDeduction.length > 0 && (
+                 <div className="mb-4">
+                   <label className="block text-sm font-bold text-slate-600 mb-2">Pilih Realisasi Sebelumnya (Untuk memotong plafon):</label>
+                   <div className="max-h-32 overflow-y-auto bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                      {availableForDeduction.map((e: any) => {
+                         const cost = e.report?.actual_cost || calculateTotalBudget(e.budget_items || []);
+                         return (
+                            <label key={e.id} className="flex items-center text-xs text-slate-700 cursor-pointer font-semibold">
+                               <input type="checkbox" checked={deductedEventIds.has(e.id)} onChange={() => toggleDeduction(e.id)} className="mr-3 w-4 h-4 cursor-pointer" />
+                               <span>{new Date(e.event_date).toLocaleDateString('id-ID')} - {e.sport_type} (Rp {cost.toLocaleString('id-ID')})</span>
+                            </label>
+                         )
+                      })}
+                   </div>
+                 </div>
+               )}
+
+               <label className="block text-sm font-bold text-slate-600 mb-2">Total Budget Awal Laporan Ini / Balance Start (Rp)</label>
+               <input type="number" placeholder="Contoh: 10000000" value={totalBudget} onChange={(e) => setTotalBudget(Number(e.target.value) || '')} className="w-full p-2.5 border-2 border-slate-200 rounded-lg text-sm font-semibold outline-none focus:border-blue-500 mb-4 bg-white" />
+
+               <label className="block text-sm font-bold text-slate-600 mb-2">Upload Transaction Status PDF (Opsional)</label>
+               <input type="file" accept="application/pdf" onChange={handleTransactionPdfUpload} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 cursor-pointer" />
+               {transactionPdfFile && <p className="text-xs text-emerald-600 font-bold mt-2">Terlampir: {transactionPdfFile.name}</p>}
+            </div>
+            <div className="flex gap-4">
+               <button onClick={() => setShowDownloadModal(false)} className="px-6 py-3 bg-slate-100 text-slate-600 font-black rounded-xl hover:bg-slate-200 transition-colors">Batal</button>
+               <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="flex-grow bg-purple-600 text-white font-black py-3 rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all text-lg flex items-center justify-center">
+                  {isGeneratingPdf ? 'Memproses...' : 'Confirm & Download'}
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddModal && (
         <div className="bg-white p-6 rounded-3xl border border-blue-200 shadow-md mb-6 animate-in fade-in slide-in-from-top-4">
@@ -1499,6 +1753,9 @@ const ViewDatabase = ({ ctx }: any) => {
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="p-5 font-black text-slate-500 text-xs w-12 text-center">
+                  <input type="checkbox" onChange={handleSelectAll} checked={displayEvents.filter((ev:any) => ev.status === 'completed').length > 0 && selectedIds.size === displayEvents.filter((ev:any) => ev.status === 'completed').length} className="w-4 h-4 cursor-pointer" title="Pilih Semua (Status Selesai)" />
+                </th>
                 <th className="p-5 font-black text-slate-500 text-xs uppercase tracking-wider">Tanggal Aktivitas</th>
                 <th className="p-5 font-black text-slate-500 text-xs uppercase tracking-wider">Program & PIC</th>
                 <th className="p-5 font-black text-slate-500 text-xs uppercase tracking-wider text-center">Peserta</th>
@@ -1509,7 +1766,7 @@ const ViewDatabase = ({ ctx }: any) => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {displayEvents.length === 0 && (
-                <tr><td colSpan="6" className="p-10 text-center text-slate-400 font-bold">Tidak ada rekaman data yang ditemukan.</td></tr>
+                <tr><td colSpan="7" className="p-10 text-center text-slate-400 font-bold">Tidak ada rekaman data yang ditemukan.</td></tr>
               )}
               {displayEvents.map((evt: any) => {
                 const picName = ctx.accounts.find((a: any) => a.id === evt.pic_id)?.name || 'Manual Admin';
@@ -1518,6 +1775,15 @@ const ViewDatabase = ({ ctx }: any) => {
                 
                 return (
                   <tr key={evt.id} className="hover:bg-blue-50/40 transition-colors group">
+                    <td className="p-5 text-center">
+                      <input 
+                         type="checkbox" 
+                         disabled={evt.status !== 'completed'}
+                         checked={selectedIds.has(evt.id)} 
+                         onChange={() => toggleSelect(evt.id)} 
+                         className="w-4 h-4 cursor-pointer disabled:opacity-50" 
+                      />
+                    </td>
                     <td className="p-5 text-slate-700 text-sm font-bold">{new Date(evt.event_date).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</td>
                     <td className="p-5">
                       <p className="font-black text-blue-900 flex items-center">
@@ -1551,6 +1817,7 @@ const ViewDatabase = ({ ctx }: any) => {
     </div>
   );
 };
+
 
 // 5. Master Data & Pengaturan Jadwal
 const ViewMasterData = ({ ctx }: any) => {

@@ -65,7 +65,7 @@ const appId = rawAppId.split('/')[0];
 const ROLES = { PIC: 'pic_olahraga', ADMIN: 'admin_approver' };
 
 const INITIAL_ACCOUNTS = [
-  { id: 'admin', username: 'admin', password: '123', role: ROLES.ADMIN, name: 'Admin Pusat', division: 'Pusat' },
+  { id: 'admin', username: 'admin', password: 'MeratusAcademy', role: ROLES.ADMIN, name: 'Admin Pusat', division: 'Pusat' },
   { id: 'a2', username: 'meliza', password: '123', role: ROLES.PIC, name: 'Meliza Latuputty', division: 'Liner Commercial', sport: 'Badminton' },
   { id: 'a3', username: 'pambudi', password: '123', role: ROLES.PIC, name: 'Pambudi Laksono', division: 'Liner Commercial', sport: 'Futsal' },
   { id: 'a4', username: 'intan', password: '123', role: ROLES.PIC, name: 'Intan Rekyan', division: 'Doc & Invoice', sport: 'Basket' },

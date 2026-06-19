@@ -348,23 +348,28 @@ const EventDetailModal = ({ event, onClose, ctx }: any) => {
                 <div className="space-y-4">
                   <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 h-full">
                     <p className="text-xs font-bold text-blue-900 uppercase mb-4 tracking-wider">Lampiran Dokumen</p>
-                    <ul className="space-y-3 text-sm text-blue-700 font-medium">
+                    <ul className="space-y-2 text-sm text-blue-700 font-medium">
                       {['nota', 'absensi', 'foto'].map(fileKey => {
-                        const fileObj = event.report.files?.[fileKey];
-                        if (!fileObj) return null;
-                        const displayLabel = typeof fileObj === 'string' ? fileObj : fileObj.name;
+                        const fileData = event.report.files?.[fileKey];
+                        if (!fileData) return null;
                         
-                        return (
-                          <li key={fileKey} className="flex items-center justify-between bg-white p-3 rounded-xl border border-blue-100 shadow-sm">
-                            <span className="flex items-center truncate mr-3">
-                              <Paperclip className="w-4 h-4 mr-2 text-blue-400 flex-shrink-0"/> 
-                              <span className="truncate">{displayLabel}</span>
-                            </span>
-                            <button onClick={() => ctx.openPreview(fileObj)} className="flex items-center text-[10px] font-black bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0 shadow-sm">
-                              <Eye className="w-3 h-3 mr-1"/> Lihat
-                            </button>
-                          </li>
-                        )
+                        // Handle multiple files gracefully (Array normalization)
+                        const fileArray = Array.isArray(fileData) ? fileData : [fileData];
+                        
+                        return fileArray.map((fileObj: any, index: number) => {
+                          const displayLabel = typeof fileObj === 'string' ? fileObj : fileObj.name;
+                          return (
+                            <li key={`${fileKey}-${index}`} className="flex items-center justify-between bg-white p-3 rounded-xl border border-blue-100 shadow-sm">
+                              <span className="flex items-center truncate mr-3">
+                                <Paperclip className="w-4 h-4 mr-2 text-blue-400 flex-shrink-0"/> 
+                                <span className="truncate text-xs font-bold">{fileKey.toUpperCase()} - {displayLabel}</span>
+                              </span>
+                              <button onClick={() => ctx.openPreview(fileObj)} className="flex items-center text-[10px] font-black bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0 shadow-sm">
+                                <Eye className="w-3 h-3 mr-1"/> Lihat
+                              </button>
+                            </li>
+                          );
+                        });
                       })}
                     </ul>
                   </div>
@@ -820,54 +825,99 @@ const ViewReporting = ({ ctx }: any) => {
 
   const [formData, setFormData] = useState<any>({ 
     date: '', venue: '', actual_cost: '', attended: '', notes: '', rating: 5, 
-    files: { nota: null, absensi: null, foto: null } 
+    files: { nota: [], absensi: [], foto: [] } 
   });
 
-  const handleFile = (e: any, type: string) => { 
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleFile = async (e: any, type: string) => {
+    const selectedFiles = Array.from(e.target.files);
+    if (selectedFiles.length === 0) return;
 
-    if (file.type === 'application/pdf' && file.size > 800 * 1024) {
-      ctx.showToast('Maaf, ukuran PDF terlalu besar (Maks 800KB). Harap kompres file Anda.', 'error');
-      return;
+    const processedFiles: any[] = [];
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file: any = selectedFiles[i];
+
+      if (file.type === 'application/pdf' && file.size > 800 * 1024) {
+        ctx.showToast(`Ukuran PDF ${file.name} terlalu besar (Maks 800KB). File dilewati.`, 'error');
+        continue;
+      }
+
+      const fileData = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+
+      if (file.type.startsWith('image/')) {
+        await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              let width = img.width;
+              let height = img.height;
+              const MAX_DIMENSION = 800; 
+              if (width > height && width > MAX_DIMENSION) { height = Math.round(height * (MAX_DIMENSION / width)); width = MAX_DIMENSION; }
+              else if (height > MAX_DIMENSION) { width = Math.round(width * (MAX_DIMENSION / height)); height = MAX_DIMENSION; }
+
+              const canvas = document.createElement('canvas');
+              canvas.width = width; canvas.height = height;
+              const canvasCtx = canvas.getContext('2d');
+              if(canvasCtx) { 
+                canvasCtx.fillStyle = '#FFFFFF'; 
+                canvasCtx.fillRect(0, 0, width, height); 
+                canvasCtx.drawImage(img, 0, 0, width, height); 
+              }
+
+              const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+              processedFiles.push({ name: file.name, type: 'image/jpeg', data: compressedDataUrl });
+              resolve(true);
+            } catch(err) { 
+              processedFiles.push({ name: file.name, type: file.type, data: fileData });
+              resolve(true);
+            }
+          };
+          img.onerror = () => { 
+            processedFiles.push({ name: file.name, type: file.type, data: fileData });
+            resolve(true);
+          };
+          img.src = fileData as string;
+        });
+      } else {
+        processedFiles.push({ name: file.name, type: file.type, data: fileData });
+      }
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const fileData = reader.result as string;
-      if (file.type.startsWith('image/')) {
-        const img = new Image();
-        img.onload = () => {
-          try {
-            let width = img.width;
-            let height = img.height;
-            const MAX_DIMENSION = 800; 
-            if (width > height && width > MAX_DIMENSION) { height = Math.round(height * (MAX_DIMENSION / width)); width = MAX_DIMENSION; }
-            else if (height > MAX_DIMENSION) { width = Math.round(width * (MAX_DIMENSION / height)); height = MAX_DIMENSION; }
-
-            const canvas = document.createElement('canvas');
-            canvas.width = width; canvas.height = height;
-            const canvasCtx = canvas.getContext('2d');
-            if(canvasCtx) { canvasCtx.fillStyle = '#FFFFFF'; canvasCtx.fillRect(0, 0, width, height); canvasCtx.drawImage(img, 0, 0, width, height); }
-
-            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-            setFormData(prev => ({ ...prev, files: { ...prev.files, [type]: { name: file.name, type: 'image/jpeg', data: compressedDataUrl } } }));
-            ctx.showToast(`Sukses memproses & mengkompresi gambar: ${file.name}`, 'success');
-          } catch(err) { ctx.showToast('Terjadi kesalahan saat memproses gambar.', 'error'); }
+    if (processedFiles.length > 0) {
+      setFormData((prev: any) => {
+        const existing = Array.isArray(prev.files[type]) ? prev.files[type] : (prev.files[type] ? [prev.files[type]] : []);
+        return {
+          ...prev,
+          files: {
+            ...prev.files,
+            [type]: [...existing, ...processedFiles]
+          }
         };
-        img.onerror = () => { ctx.showToast('Gagal memproses gambar. Format mungkin tidak didukung.', 'error'); };
-        img.src = fileData;
-      } else {
-        setFormData(prev => ({ ...prev, files: { ...prev.files, [type]: { name: file.name, type: file.type, data: fileData } } }));
-      }
-    };
-    reader.onerror = () => { ctx.showToast('Gagal membaca file perangkat.', 'error'); };
-    reader.readAsDataURL(file);
+      });
+      ctx.showToast(`Berhasil memproses & menambahkan ${processedFiles.length} file ${type}.`, 'success');
+    }
+    
+    // Reset input value to allow selecting the same file again
+    e.target.value = '';
+  };
+
+  const removeFile = (type: string, index: number) => {
+    setFormData((prev: any) => {
+      const newFiles = [...(prev.files[type] || [])];
+      newFiles.splice(index, 1);
+      return { ...prev, files: { ...prev.files, [type]: newFiles } };
+    });
   };
 
   const handleSubmitReport = async (e: any) => {
     e.preventDefault();
-    if(!formData.files.nota || !formData.files.foto) return ctx.showToast('Silakan unggah Nota dan Foto Dokumentasi untuk melanjutkan.', 'error');
+    if(!formData.files.nota || formData.files.nota.length === 0 || !formData.files.foto || formData.files.foto.length === 0) {
+       return ctx.showToast('Silakan unggah Nota dan Foto Dokumentasi (minimal 1 file) untuk melanjutkan.', 'error');
+    }
     if(Number(formData.attended) < 7) return ctx.showToast('Minimal pengajuan adalah 7 peserta.', 'error');
 
     // Menghitung Biaya dengan menyuntikkan Biaya Admin Otomatis tanpa PIC sadari
@@ -982,23 +1032,54 @@ const ViewReporting = ({ ctx }: any) => {
           </div>
 
           <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
-            <p className="font-black text-blue-900 mb-5 flex items-center"><Paperclip className="w-5 h-5 mr-2"/> Unggah Dokumen Bukti</p>
+            <p className="font-black text-blue-900 mb-5 flex items-center"><Paperclip className="w-5 h-5 mr-2"/> Unggah Dokumen Bukti (Multiple)</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
               <div className="bg-white p-4 rounded-xl shadow-sm">
                 <label className="block text-xs font-bold text-slate-600 mb-2">1. Nota / Invoice (Wajib)</label>
-                <input type="file" required accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'nota')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                {formData.files.nota && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {formData.files.nota.name}</p>}
+                <input type="file" multiple required={!formData.files.nota || formData.files.nota.length === 0} accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'nota')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                {formData.files.nota && formData.files.nota.length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {formData.files.nota.map((f: any, idx: number) => (
+                      <li key={idx} className="text-[10px] text-emerald-700 font-bold flex justify-between items-center bg-emerald-50 px-2.5 py-1.5 rounded border border-emerald-100 shadow-sm">
+                        <span className="truncate">{f.name}</span>
+                        <button type="button" onClick={() => removeFile('nota', idx)} className="text-red-400 hover:text-red-600 ml-2 transition-colors flex-shrink-0"><XCircle className="w-4 h-4"/></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
+              
               <div className="bg-white p-4 rounded-xl shadow-sm">
                 <label className="block text-xs font-bold text-slate-600 mb-2">2. Foto Kegiatan (Wajib)</label>
-                <input type="file" required accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'foto')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                {formData.files.foto && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {formData.files.foto.name}</p>}
+                <input type="file" multiple required={!formData.files.foto || formData.files.foto.length === 0} accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'foto')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                {formData.files.foto && formData.files.foto.length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {formData.files.foto.map((f: any, idx: number) => (
+                      <li key={idx} className="text-[10px] text-emerald-700 font-bold flex justify-between items-center bg-emerald-50 px-2.5 py-1.5 rounded border border-emerald-100 shadow-sm">
+                        <span className="truncate">{f.name}</span>
+                        <button type="button" onClick={() => removeFile('foto', idx)} className="text-red-400 hover:text-red-600 ml-2 transition-colors flex-shrink-0"><XCircle className="w-4 h-4"/></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
+              
               <div className="bg-white p-4 rounded-xl shadow-sm">
                 <label className="block text-xs font-bold text-slate-600 mb-2">3. Daftar Hadir (Opsional)</label>
-                <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'absensi')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-                {formData.files.absensi && <p className="text-[10px] text-emerald-600 font-bold mt-2 truncate">Terunggah: {formData.files.absensi.name}</p>}
+                <input type="file" multiple accept="image/*,application/pdf" onChange={(e) => handleFile(e, 'absensi')} className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
+                {formData.files.absensi && formData.files.absensi.length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {formData.files.absensi.map((f: any, idx: number) => (
+                      <li key={idx} className="text-[10px] text-emerald-700 font-bold flex justify-between items-center bg-emerald-50 px-2.5 py-1.5 rounded border border-emerald-100 shadow-sm">
+                        <span className="truncate">{f.name}</span>
+                        <button type="button" onClick={() => removeFile('absensi', idx)} className="text-red-400 hover:text-red-600 ml-2 transition-colors flex-shrink-0"><XCircle className="w-4 h-4"/></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
+
             </div>
           </div>
 
@@ -1080,19 +1161,25 @@ const AdminSettlementCard = ({ evt, ctx }: any) => {
         </div>
       </div>
 
-      <div className="mb-5 bg-blue-50 p-4 rounded-xl border border-blue-100">
+      <div className="mb-5 bg-blue-50 p-4 rounded-xl border border-blue-100 max-h-48 overflow-y-auto custom-scrollbar">
         <p className="text-xs font-black mb-3 text-blue-900 tracking-wide uppercase">File Lampiran PIC:</p>
         <ul className="space-y-2">
           {['nota', 'absensi', 'foto'].map(fileKey => {
-            const fileObj = evt.report?.files?.[fileKey];
-            if(!fileObj) return null;
-            const displayLabel = typeof fileObj === 'string' ? fileObj : fileObj.name;
-            return (
-              <li key={fileKey} className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-blue-100 shadow-sm">
-                <span className="flex items-center truncate mr-2"><Paperclip className="w-4 h-4 mr-2 text-blue-400 flex-shrink-0"/> <span className="truncate text-xs font-bold text-slate-600">{displayLabel}</span></span>
-                <button onClick={() => ctx.openPreview(fileObj)} className="text-[10px] font-black bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition-colors flex-shrink-0 flex items-center shadow-sm"><Eye className="w-3 h-3 mr-1"/> Lihat</button>
-              </li>
-            )
+            const fileData = evt.report?.files?.[fileKey];
+            if(!fileData) return null;
+            
+            // Handle multiple files gracefully
+            const fileArray = Array.isArray(fileData) ? fileData : [fileData];
+            
+            return fileArray.map((fileObj: any, index: number) => {
+              const displayLabel = typeof fileObj === 'string' ? fileObj : fileObj.name;
+              return (
+                <li key={`${fileKey}-${index}`} className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-blue-100 shadow-sm">
+                  <span className="flex items-center truncate mr-2"><Paperclip className="w-4 h-4 mr-2 text-blue-400 flex-shrink-0"/> <span className="truncate text-xs font-bold text-slate-600">{fileKey.toUpperCase()} - {displayLabel}</span></span>
+                  <button onClick={() => ctx.openPreview(fileObj)} className="text-[10px] font-black bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition-colors flex-shrink-0 flex items-center shadow-sm"><Eye className="w-3 h-3 mr-1"/> Lihat</button>
+                </li>
+              );
+            });
           })}
         </ul>
       </div>
@@ -1499,48 +1586,57 @@ const ViewDatabase = ({ ctx }: any) => {
           }
        }
 
-       // 3. Iterate each event & merge documents
+       // 3. Iterate each event & merge documents (Now supports array of files per category)
        for (const evt of completedEvents) {
           const files = evt.report?.files;
           if (files) {
              for (const fType of ['nota', 'foto', 'absensi']) {
-                const fileObj = files[fType];
-                if (!fileObj || typeof fileObj === 'string') continue;
+                const fileData = files[fType];
+                if (!fileData) continue;
+                
+                // Normalization to support multiple files
+                const fileArray = Array.isArray(fileData) ? fileData : [fileData];
 
-                try {
-                   const base64Data = fileObj.data.split(';base64,').pop();
-                   const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+                for (let i = 0; i < fileArray.length; i++) {
+                   const fileObj = fileArray[i];
+                   if (!fileObj || typeof fileObj === 'string') continue;
 
-                   if (fileObj.type === 'application/pdf') {
-                      const extPdf = await PDFDocument.load(bytes);
-                      const copiedPages = await pdfDoc.copyPages(extPdf, extPdf.getPageIndices());
-                      copiedPages.forEach((p) => {
-                         const newP = pdfDoc.addPage(p);
-                         newP.drawText(`Lampiran ${fType.toUpperCase()} - ${evt.sport_type}`, { x: 10, y: 10, size: 10, font, color: rgb(1,0,0) });
-                      });
-                   } else if (fileObj.type.startsWith('image/')) {
-                      let img;
-                      if (fileObj.type === 'image/jpeg' || fileObj.type === 'image/jpg') {
-                         img = await pdfDoc.embedJpg(bytes);
-                      } else if (fileObj.type === 'image/png') {
-                         img = await pdfDoc.embedPng(bytes);
-                      }
+                   try {
+                      const base64Data = fileObj.data.split(';base64,').pop();
+                      const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+                      const labelCounter = fileArray.length > 1 ? ` ${i + 1}` : '';
 
-                      if (img) {
-                         const imgPage = pdfDoc.addPage([595.28, 841.89]); // Portrait
-                         imgPage.drawText(`LAMPIRAN: ${fType.toUpperCase()} - ${evt.sport_type}`, { x: 50, y: 800, size: 14, font: fontBold });
-
-                         const { width: iW, height: iH } = img.scaleToFit(495.28, 700);
-                         imgPage.drawImage(img, {
-                            x: 50 + (495.28 - iW) / 2,
-                            y: 400 - iH / 2 + 30,
-                            width: iW,
-                            height: iH
+                      if (fileObj.type === 'application/pdf') {
+                         const extPdf = await PDFDocument.load(bytes);
+                         const copiedPages = await pdfDoc.copyPages(extPdf, extPdf.getPageIndices());
+                         copiedPages.forEach((p) => {
+                            const newP = pdfDoc.addPage(p);
+                            newP.drawText(`Lampiran ${fType.toUpperCase()}${labelCounter} - ${evt.sport_type}`, { x: 10, y: 10, size: 10, font, color: rgb(1,0,0) });
                          });
+                      } else if (fileObj.type.startsWith('image/')) {
+                         let img;
+                         if (fileObj.type === 'image/jpeg' || fileObj.type === 'image/jpg') {
+                            img = await pdfDoc.embedJpg(bytes);
+                         } else if (fileObj.type === 'image/png') {
+                            img = await pdfDoc.embedPng(bytes);
+                         }
+
+                         if (img) {
+                            const imgPage = pdfDoc.addPage([595.28, 841.89]); // Portrait
+                            imgPage.drawText(`LAMPIRAN: ${fType.toUpperCase()}${labelCounter} - ${evt.sport_type}`, { x: 50, y: 800, size: 14, font: fontBold });
+
+                            const { width: iW, height: iH } = img.scaleToFit(495.28, 700);
+                            imgPage.drawImage(img, {
+                               x: 50 + (495.28 - iW) / 2,
+                               y: 400 - iH / 2 + 30,
+                               width: iW,
+                               height: iH
+                            });
+                         }
                       }
+                   } catch(err) {
+                      console.error(`Failed merging ${fType} item ${i}`, err);
                    }
-                } catch(err) {
-                   console.error(`Failed merging ${fType}`, err);
                 }
              }
           }

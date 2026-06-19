@@ -566,7 +566,38 @@ const ViewDashboard = ({ ctx }) => {
           </button>
         </div>
       )}
-
+// ... existing code ...
+      {/* MASTER CALENDAR BANNER FOR ADMIN */}
+      {!isPIC && (
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden mt-6">
+          <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none transform translate-x-4 translate-y-4"><CalendarDays className="w-48 h-48" /></div>
+          <h3 className="text-lg font-black text-slate-800 mb-5 flex items-center relative z-10">
+            <CalendarDays className="w-5 h-5 mr-2 text-indigo-600" /> Kalender & Jadwal Program Rutin
+            {filterArea !== 'all' ? ` (${filterArea})` : ''}
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 relative z-10">
+            {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Random'].map(day => {
+              const progsToday = programsToMonitor.filter(p => p.day === day);
+              return (
+                <div key={day} className={`p-4 rounded-2xl border-2 ${progsToday.length > 0 ? 'bg-indigo-50 border-indigo-100 shadow-sm' : 'bg-slate-50 border-slate-100 opacity-70'}`}>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{day}</p>
+                  {progsToday.length > 0 ? (
+                    <div className="space-y-2">
+                      {progsToday.map(p => (
+                        <div key={p.id} className="text-xs font-bold text-indigo-700 bg-white px-2.5 py-1.5 rounded-lg shadow-sm border border-indigo-50 truncate flex flex-col">
+                          <span className="flex items-center"><Activity className="w-3 h-3 mr-1.5 opacity-50 flex-shrink-0"/> <span className="truncate">{p.sport}</span></span>
+                          {filterArea === 'all' && <span className="text-[9px] text-slate-400 font-medium ml-4 mt-0.5 truncate">{p.area || AREA_HO}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : <p className="text-xs font-medium text-slate-400">-</p>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+// ... existing code ...
       {/* FILTER ANALISIS TERPADU */}
       <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 relative z-20 mt-8">
         <div className="flex items-center text-blue-900 font-black whitespace-nowrap bg-blue-50 px-4 py-2.5 rounded-xl border border-blue-100">
